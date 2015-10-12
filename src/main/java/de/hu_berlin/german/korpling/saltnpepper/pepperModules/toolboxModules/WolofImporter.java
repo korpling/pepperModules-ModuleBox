@@ -23,8 +23,21 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.eclipse.emf.common.util.BasicEList;
-import org.eclipse.emf.common.util.EList;
+import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
+import org.corpus_tools.pepper.common.PepperConfiguration;
+import org.corpus_tools.pepper.impl.PepperImporterImpl;
+import org.corpus_tools.pepper.impl.PepperMapperImpl;
+import org.corpus_tools.pepper.modules.PepperImporter;
+import org.corpus_tools.pepper.modules.PepperMapper;
+import org.corpus_tools.salt.SaltFactory;
+import org.corpus_tools.salt.common.SDocument;
+import org.corpus_tools.salt.common.SDocumentGraph;
+import org.corpus_tools.salt.common.SSpan;
+import org.corpus_tools.salt.common.STextualDS;
+import org.corpus_tools.salt.common.SToken;
+import org.corpus_tools.salt.common.tokenizer.Tokenizer;
+import org.corpus_tools.salt.core.SAnnotation;
+import org.corpus_tools.salt.graph.Identifier;
 import org.eclipse.emf.common.util.URI;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -32,21 +45,6 @@ import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.ext.DefaultHandler2;
-
-import de.hu_berlin.german.korpling.saltnpepper.pepper.common.DOCUMENT_STATUS;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.PepperImporter;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.PepperMapper;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.impl.PepperImporterImpl;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.impl.PepperMapperImpl;
-import de.hu_berlin.german.korpling.saltnpepper.salt.SaltFactory;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sCorpusStructure.SDocument;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.SDocumentGraph;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.SSpan;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.STextualDS;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.SToken;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.tokenizer.Tokenizer;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCore.SAnnotation;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCore.SElementId;
 
 @Component(name = "WolofImporterComponent", factory = "PepperImporterComponentFactory")
 public class WolofImporter extends PepperImporterImpl implements PepperImporter {
@@ -66,19 +64,19 @@ public class WolofImporter extends PepperImporterImpl implements PepperImporter 
 		this.setName("WolofImporter");
 		this.setVersion("0.0.1");
 		this.setDesc("This importer transforms data of an unknown format to salt. ");
-		this.setSupplierContact(URI.createURI("saltnpepper@lists.hu-berlin.de"));
-		this.setSupplierHomepage(URI.createURI("saltnpepper@lists.hu-berlin.de"));
+		this.setSupplierContact(URI.createURI(PepperConfiguration.EMAIL));
+		this.setSupplierHomepage(URI.createURI("https://github.com/korpling/pepperModules-ModuleBox"));
 		this.addSupportedFormat("xml", "1.0", null);
-		this.getSDocumentEndings().add("xml");
+		this.getDocumentEndings().add("xml");
 	}
 
 	@Override
-	public PepperMapper createPepperMapper(SElementId sElementId) {
+	public PepperMapper createPepperMapper(Identifier sElementId) {
 		PepperMapper mapper = new PepperMapperImpl() {
 			@Override
 			public DOCUMENT_STATUS mapSDocument() {
 				DocumentStructureReader contentHandler = new DocumentStructureReader();
-				contentHandler.structure = getSDocument().getSDocumentGraph();
+				contentHandler.structure = getDocument().getDocumentGraph();
 				this.readXMLResource(contentHandler, getResourceURI());
 
 				return DOCUMENT_STATUS.COMPLETED;
@@ -86,7 +84,7 @@ public class WolofImporter extends PepperImporterImpl implements PepperImporter 
 
 		};
 		if (sElementId.getIdentifiableElement() != null && sElementId.getIdentifiableElement() instanceof SDocument) {
-			URI resource = getSElementId2ResourceTable().get(sElementId);
+			URI resource = getIdentifier2ResourceTable().get(sElementId);
 			mapper.setResourceURI(resource);
 		}
 		return mapper;
@@ -106,12 +104,12 @@ public class WolofImporter extends PepperImporterImpl implements PepperImporter 
 			currentText = new StringBuilder();
 			if (TAG_WOL.equals(qName)) {
 				// reset currentTokList for each new primary text
-				currentTokList = new BasicEList<SToken>();
+				currentTokList = new ArrayList<SToken>();
 			} else if (TAG_ARTICLE.equals(qName)) {
 				for (int i = 0; i < attributes.getLength(); i++) {
-					SAnnotation anno = SaltFactory.eINSTANCE.createSAnnotation();
-					anno.setSName(attributes.getQName(i));
-					anno.setSValue(attributes.getValue(i));
+					SAnnotation anno = SaltFactory.createSAnnotation();
+					anno.setName(attributes.getQName(i));
+					anno.setValue(attributes.getValue(i));
 					annoList.add(anno);
 				}
 			}
@@ -126,9 +124,9 @@ public class WolofImporter extends PepperImporterImpl implements PepperImporter 
 
 		STextualDS primaryText = null;
 
-		EList<SToken> currentTokList = new BasicEList<SToken>();
-		EList<SToken> articleTokList = new BasicEList<SToken>();
-		
+		List<SToken> currentTokList = new ArrayList<SToken>();
+		List<SToken> articleTokList = new ArrayList<SToken>();
+
 		Set<SAnnotation> annoList = new HashSet<>();
 		HashMap<String, String> annoListForSegmentElem = new HashMap<String, String>();
 
@@ -141,8 +139,8 @@ public class WolofImporter extends PepperImporterImpl implements PepperImporter 
 				if (primaryText == null) {
 					// initialize primaryText
 
-					primaryText = SaltFactory.eINSTANCE.createSTextualDS();
-					primaryText.setSText("");
+					primaryText = SaltFactory.createSTextualDS();
+					primaryText.setText("");
 					structure.addNode(primaryText);
 				}
 				String text = currentText.toString();
@@ -150,8 +148,8 @@ public class WolofImporter extends PepperImporterImpl implements PepperImporter 
 				Tokenizer tokenizer = new Tokenizer();
 				List<String> tokenList = tokenizer.tokenizeToString(currentText.toString(), null);
 
-				int offset = primaryText.getSText().length();
-				primaryText.setSText(primaryText.getSText() + text);
+				int offset = primaryText.getText().length();
+				primaryText.setText(primaryText.getText() + text);
 
 				for (String tok : tokenList) {
 					int currentPos = text.indexOf(tok);
@@ -160,7 +158,7 @@ public class WolofImporter extends PepperImporterImpl implements PepperImporter 
 					offset += tok.length() + currentPos;
 					text = text.substring(currentPos + tok.length());
 
-					SToken currTok = structure.createSToken(primaryText, start, end);
+					SToken currTok = structure.createToken(primaryText, start, end);
 
 					// remember all SToken
 					currentTokList.add(currTok);
@@ -169,22 +167,22 @@ public class WolofImporter extends PepperImporterImpl implements PepperImporter 
 				for (SToken curTok : currentTokList) {
 					articleTokList.add(curTok);
 				}
-			}else if (TAG_SENTENCE.equals(qName)){
+			} else if (TAG_SENTENCE.equals(qName)) {
 				currentTokList.clear();
-			}else if (TAG_EN.equals(qName)){
-				SSpan span= structure.createSSpan(currentTokList);
-				span.createSAnnotation(null, "en", currentText.toString());
-				span.createSAnnotation(null, "sentence", "sentence");
-			}else if (TAG_ARTICLE.equals(qName)){
-				SSpan article= structure.createSSpan(articleTokList);
-				for (SAnnotation anno: annoList){
-					article.addSAnnotation(anno);
+			} else if (TAG_EN.equals(qName)) {
+				SSpan span = structure.createSpan(currentTokList);
+				span.createAnnotation(null, "en", currentText.toString());
+				span.createAnnotation(null, "sentence", "sentence");
+			} else if (TAG_ARTICLE.equals(qName)) {
+				SSpan article = structure.createSpan(articleTokList);
+				for (SAnnotation anno : annoList) {
+					article.addAnnotation(anno);
 				}
 				annoList.clear();
 				articleTokList.clear();
 			}
 			currentText = new StringBuilder();
-		} 
+		}
 	}
 
 }

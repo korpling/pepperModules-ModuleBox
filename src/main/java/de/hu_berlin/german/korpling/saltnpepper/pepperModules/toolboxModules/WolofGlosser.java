@@ -19,35 +19,23 @@ package de.hu_berlin.german.korpling.saltnpepper.pepperModules.toolboxModules;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.emf.common.util.EList;
+import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
+import org.corpus_tools.pepper.common.PepperConfiguration;
+import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
+import org.corpus_tools.pepper.impl.PepperMapperImpl;
+import org.corpus_tools.pepper.modules.PepperMapper;
+import org.corpus_tools.pepper.modules.exceptions.PepperModuleException;
+import org.corpus_tools.pepper.modules.exceptions.PepperModuleNotReadyException;
+import org.corpus_tools.salt.common.SToken;
+import org.corpus_tools.salt.graph.Identifier;
 import org.eclipse.emf.common.util.URI;
 import org.osgi.service.component.annotations.Component;
-
-import com.neovisionaries.i18n.LanguageCode;
-
-import de.hu_berlin.german.korpling.saltnpepper.pepper.common.DOCUMENT_STATUS;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.PepperMapper;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.exceptions.PepperModuleException;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.exceptions.PepperModuleNotReadyException;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.impl.PepperManipulatorImpl;
-import de.hu_berlin.german.korpling.saltnpepper.pepper.modules.impl.PepperMapperImpl;
-import de.hu_berlin.german.korpling.saltnpepper.salt.SaltFactory;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.SDataSourceSequence;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.STextualDS;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.SToken;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.tokenizer.AbbreviationDE;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.tokenizer.AbbreviationEN;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.tokenizer.AbbreviationFR;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCommon.sDocumentStructure.tokenizer.AbbreviationIT;
-import de.hu_berlin.german.korpling.saltnpepper.salt.saltCore.SElementId;
 
 /**
  * 
@@ -65,7 +53,7 @@ public class WolofGlosser extends PepperManipulatorImpl {
 	public WolofGlosser() {
 		super();
 		setName("WolofGlosser");
-		setSupplierContact(URI.createURI("saltnpepper@lists.hu-berlin.de"));
+		setSupplierContact(URI.createURI(PepperConfiguration.EMAIL));
 		setSupplierHomepage(URI.createURI("https://github.com/korpling/pepperModules-ModuleBox"));
 		setDesc("The WolofGlosser is a manipulator to create english glosses for a text written in wolof. ");
 	}
@@ -97,7 +85,7 @@ public class WolofGlosser extends PepperManipulatorImpl {
 
 							glossar.put(parts[0], parts[1]);
 						} else {
-							logger.warn("Ignore glossar file entry '"+line+"' in file '" + glossarFile.getAbsolutePath() + "', because it has '" + parts.length + "' columns instead of '2' or '3'. ");
+							logger.warn("Ignore glossar file entry '" + line + "' in file '" + glossarFile.getAbsolutePath() + "', because it has '" + parts.length + "' columns instead of '2' or '3'. ");
 						}
 					}
 				}
@@ -112,10 +100,10 @@ public class WolofGlosser extends PepperManipulatorImpl {
 
 	/**
 	 * Creates a mapper of type {@link GlossarMapper}. {@inheritDoc
-	 * PepperModule#createPepperMapper(SElementId)}
+	 * PepperModule#createPepperMapper(Identifier)}
 	 */
 	@Override
-	public PepperMapper createPepperMapper(SElementId sElementId) {
+	public PepperMapper createPepperMapper(Identifier sElementId) {
 		GlossarMapper mapper = new GlossarMapper();
 		mapper.glossar = glossar;
 		mapper.posTags = posTags;
@@ -130,23 +118,23 @@ public class WolofGlosser extends PepperManipulatorImpl {
 		public int numOfWords = 0;
 
 		/**
-		 * {@inheritDoc PepperMapper#setSDocument(SDocument)}
+		 * {@inheritDoc PepperMapper#setDocument(SDocument)}
 		 * 
 		 * OVERRIDE THIS METHOD FOR CUSTOMIZED MAPPING.
 		 */
 		@Override
 		public DOCUMENT_STATUS mapSDocument() {
-			if ((getSDocument().getSDocumentGraph() != null) && (getSDocument().getSDocumentGraph().getSTokens().size() > 0)) {
-				for (SToken tok: getSDocument().getSDocumentGraph().getSTokens()){
-					String text= getSDocument().getSDocumentGraph().getSText(tok);
-					String gloss= glossar.get(text);
-					
-					if (gloss!= null){
-						tok.createSAnnotation(null, "gloss", gloss);
+			if ((getDocument().getDocumentGraph() != null) && (getDocument().getDocumentGraph().getTokens().size() > 0)) {
+				for (SToken tok : getDocument().getDocumentGraph().getTokens()) {
+					String text = getDocument().getDocumentGraph().getText(tok);
+					String gloss = glossar.get(text);
+
+					if (gloss != null) {
+						tok.createAnnotation(null, "gloss", gloss);
 					}
-					String pos= posTags.get(text);
-					if (pos!= null){
-						tok.createSAnnotation(null, "pos_gloss", pos);
+					String pos = posTags.get(text);
+					if (pos != null) {
+						tok.createAnnotation(null, "pos_gloss", pos);
 					}
 				}
 			}// if document contains a document graph
