@@ -15,7 +15,7 @@
  *
  *
  */
-package de.hu_berlin.german.korpling.saltnpepper.pepperModules.toolboxModules;
+package org.corpus_tools.peppermodules.toolboxModules;
 
 import java.io.BufferedReader;
 import java.io.File;
