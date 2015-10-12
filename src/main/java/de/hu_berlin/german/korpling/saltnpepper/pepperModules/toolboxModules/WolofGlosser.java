@@ -144,6 +144,10 @@ public class WolofGlosser extends PepperManipulatorImpl {
 					if (gloss!= null){
 						tok.createSAnnotation(null, "gloss", gloss);
 					}
+					String pos= posTags.get(text);
+					if (pos!= null){
+						tok.createSAnnotation(null, "pos_gloss", pos);
+					}
 				}
 			}// if document contains a document graph
 			return (DOCUMENT_STATUS.COMPLETED);
