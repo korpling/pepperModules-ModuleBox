@@ -164,14 +164,13 @@ public class OrderRelationAdder extends PepperManipulatorImpl {
 					// stores all spans corresponding to a segmentation
 					Map<String, TreeMap<Integer, SSpan>> segmentationSpans = new Hashtable<String, TreeMap<Integer, SSpan>>();
 					String seg = null;
-					List<SALT_TYPE> allowed = new ArrayList<SALT_TYPE>();
-					allowed.add(SALT_TYPE.STEXT_OVERLAPPING_RELATION);
-
+					
 					for (SSpan span : graph.getSpans()) {
 						for (SAnnotation anno : span.getAnnotations()) {
 							if (((SOrderRelationAdderProperties) getProperties()).getSegmentations().contains(anno.getName())) {
 								seg = anno.getName();
-								List<DataSourceSequence> overlapped = graph.getOverlappedDataSourceSequence(span, allowed);
+								List<DataSourceSequence> overlapped = graph.getOverlappedDataSourceSequence(span, 
+                  SALT_TYPE.STEXT_OVERLAPPING_RELATION);
 								if (overlapped != null) {
 									for (DataSourceSequence o : overlapped) {
 										if (o.getDataSource() instanceof STextualDS) {
