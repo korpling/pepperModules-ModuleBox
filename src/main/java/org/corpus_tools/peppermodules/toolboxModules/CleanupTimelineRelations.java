@@ -56,7 +56,7 @@ public class CleanupTimelineRelations extends PepperManipulatorImpl {
 
 	public CleanupTimelineRelations() {
 		super();
-		this.setName("RemoveUnusedTimelineItems");
+		this.setName("CleanupTimelineRelations");
 		setSupplierContact(URI.createURI(PepperConfiguration.EMAIL));
 		setSupplierHomepage(URI.createURI("https://github.com/korpling/pepperModules-ModuleBox"));
 		setDesc("This class will cleanup timeline relations from a timeline.  "
@@ -69,11 +69,11 @@ public class CleanupTimelineRelations extends PepperManipulatorImpl {
 	 */
 	@Override
 	public PepperMapper createPepperMapper(Identifier sElementId) {
-		RemoveUnusedTimelineItemsMapper mapper = new RemoveUnusedTimelineItemsMapper();
+		CleanupTimelineRelationsMapper mapper = new CleanupTimelineRelationsMapper();
 		return (mapper);
 	}
 
-	public class RemoveUnusedTimelineItemsMapper extends PepperMapperImpl implements PepperMapper {
+	public class CleanupTimelineRelationsMapper extends PepperMapperImpl implements PepperMapper {
 		/**
 		 * This method runs in two loops, first all Spans are collected, whose
 		 * annotations match the one of
