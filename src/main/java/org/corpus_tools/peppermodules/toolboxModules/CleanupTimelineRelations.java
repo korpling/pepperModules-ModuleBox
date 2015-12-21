@@ -17,63 +17,52 @@
  */
 package org.corpus_tools.peppermodules.toolboxModules;
 
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.ListMultimap;
+import java.util.LinkedList;
 import org.corpus_tools.peppermodules.ridgesModules.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Hashtable;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
 import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
 import org.corpus_tools.pepper.impl.PepperMapperImpl;
 import org.corpus_tools.pepper.modules.PepperMapper;
-import org.corpus_tools.salt.SALT_TYPE;
 import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.SDocumentGraph;
 import org.corpus_tools.salt.common.SOrderRelation;
-import org.corpus_tools.salt.common.SSpan;
-import org.corpus_tools.salt.common.STextualDS;
-import org.corpus_tools.salt.common.STextualRelation;
 import org.corpus_tools.salt.common.STimeline;
 import org.corpus_tools.salt.common.STimelineRelation;
 import org.corpus_tools.salt.common.SToken;
-import org.corpus_tools.salt.core.SAnnotation;
+import org.corpus_tools.salt.core.SNode;
+import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Identifier;
-import org.corpus_tools.salt.util.DataSourceSequence;
+import org.corpus_tools.salt.graph.Label;
 import org.eclipse.emf.common.util.URI;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 /**
  * 
- * This class will remove all unused timeline point of times (PoT) from the timeline.
- * A PoT is unused if no {@link STimelineRelation} is using this PoT.
+ * This class will cleanup {@link STimelineRelation} from a {@link STimeline}. 
+ * If there is more than one outgoing {@link STimelineRelation} from
+ * a {@link SToken} it will merge the relations into one relation.
  * 
  * @author Thomas Krause
  * 
  */
-@Component(name = "RemoveUnusedTimelineItems", factory = "PepperManipulatorComponentFactory")
-public class RemoveUnusedTimelineItems extends PepperManipulatorImpl {
-	private static final Logger logger = LoggerFactory.getLogger("RemoveUnusedTimelineItems");
+@Component(name = "CleanupTimelineRelations", factory = "PepperManipulatorComponentFactory")
+public class CleanupTimelineRelations extends PepperManipulatorImpl {
+	private static final Logger logger = LoggerFactory.getLogger("CleanupTimelineRelations");
 
-	public RemoveUnusedTimelineItems() {
+	public CleanupTimelineRelations() {
 		super();
 		this.setName("RemoveUnusedTimelineItems");
 		setSupplierContact(URI.createURI(PepperConfiguration.EMAIL));
 		setSupplierHomepage(URI.createURI("https://github.com/korpling/pepperModules-ModuleBox"));
-		setDesc("This class will remove all unused timeline point of times (PoT) from the timeline. A PoT is unused if no timeline relation is using this PoT.");
+		setDesc("This class will cleanup timeline relations from a timeline.  "
+      + "If there is more than one outgoing timeline relation from a token it will merge the relations into one relation.");
 	}
-
-	/**
-	 * {@inheritDoc PepperModule#createPepperMapper(Identifier)}
-	 */
+  
 	/**
 	 * Creates a mapper of type {@link PAULA2SaltMapper}. {@inheritDoc
 	 * PepperModule#createPepperMapper(Identifier)}
@@ -99,15 +88,46 @@ public class RemoveUnusedTimelineItems extends PepperManipulatorImpl {
       STimeline timeline = graph.getTimeline();
       
       if(timeline != null) {
-      
-        // collect all PoTs that are used in some timeline relation
-        HashSet<Integer> usedPot = new HashSet<>();
+        
+        ListMultimap<SToken, STimelineRelation> tok2rel = LinkedListMultimap.create();
         for(STimelineRelation rel : graph.getTimelineRelations()) {
-          if(rel.getStart() != null) {
-            usedPot.add(rel.getStart());
-          }
-          if(rel.getEnd() != null) {
-            usedPot.add(rel.getEnd());
+          tok2rel.put(rel.getSource(), rel);
+        }
+        
+        for(SToken tok : graph.getTokens()) {
+          List<STimelineRelation> timeRels = tok2rel.get(tok);
+          if(timeRels != null && timeRels.size() > 1) {
+            
+            STimelineRelation mergedRel = SaltFactory.createSTimelineRelation();
+            mergedRel.setSource(tok);
+            mergedRel.setTarget(timeline);
+            
+            // collect the minmal starting and the maximal end point
+            int minStart = Integer.MAX_VALUE;
+            int maxEnd = Integer.MIN_VALUE;
+            for(STimelineRelation oldRel : timeRels) {
+              minStart = Math.min(minStart, oldRel.getStart());
+              maxEnd = Math.max(maxEnd, oldRel.getEnd());
+              
+              
+              // move all labels
+              List<Label> labelsOfOldRel = new LinkedList<>(oldRel.getLabels());
+              for(Label oldLabel : labelsOfOldRel) {
+                if(mergedRel.getLabel(oldLabel.getQName()) == null) {
+                  mergedRel.addLabel(oldLabel);
+                } else {
+                  oldRel.removeLabel(oldLabel.getQName());
+                }
+              }
+              
+              // remove the original timeline relation
+              graph.removeRelation(oldRel);
+              
+            }
+            // add the merged timeline relation
+            mergedRel.setStart(minStart);
+            mergedRel.setEnd(maxEnd);
+            graph.addRelation(mergedRel);
           }
         }
         
