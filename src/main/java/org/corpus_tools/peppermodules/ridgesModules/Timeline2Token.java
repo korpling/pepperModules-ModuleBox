@@ -46,6 +46,7 @@ import org.corpus_tools.salt.common.SToken;
 import org.corpus_tools.salt.core.SAnnotation;
 import org.corpus_tools.salt.core.SAnnotationContainer;
 import org.corpus_tools.salt.core.SFeature;
+import org.corpus_tools.salt.core.SLayer;
 import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Identifier;
 import org.corpus_tools.salt.graph.LabelableElement;
@@ -80,14 +81,30 @@ public class Timeline2Token extends PepperManipulatorImpl {
 
 	public class Timeline2TokenProperties extends PepperModuleProperties {
 		private final static String PROP_NUMBER_ARTIFICIAL_TOKEN = "number-artificial-token";
+		private final static String PROP_ANNO_NAMESPACE = "anno-namespace";
+		private final static String PROP_TOKEN_LAYER = "token-layer";
 
 		public Timeline2TokenProperties() {
 			this.addProperty(new PepperModuleProperty<Boolean>(PROP_NUMBER_ARTIFICIAL_TOKEN, Boolean.class, "???", Boolean.TRUE, false));
+			this.addProperty(new PepperModuleProperty<>(PROP_ANNO_NAMESPACE, String.class, "Namespace given to the annotation created from the token. Default is \"annis\"", "annis", false));
+			this.addProperty(new PepperModuleProperty<>(PROP_TOKEN_LAYER, String.class, "If set and not empty the layer to which each token should be added to.", null, false));
 		}
 
 		public boolean getNumberArtificialTokens() {
 			boolean numberArtificialTokens = "true".equalsIgnoreCase(getProperty(PROP_NUMBER_ARTIFICIAL_TOKEN).getValue().toString());
 			return (numberArtificialTokens);
+		}
+		public String getAnnoNamespace() {
+			return (String) getProperty(PROP_ANNO_NAMESPACE).getValue();
+		}
+		
+		public String getTokenLayer() {
+			PepperModuleProperty<String> prop = (PepperModuleProperty<String>) getProperty(PROP_TOKEN_LAYER);
+			if(prop != null) {
+				return prop.getValue();
+			} else {
+				return null;
+			}
 		}
 	}
 
@@ -98,11 +115,13 @@ public class Timeline2Token extends PepperManipulatorImpl {
 	}
 
 	private class Timeline2TokenMapper extends PepperMapperImpl {
+		
 
 		@Override
 		public DOCUMENT_STATUS mapSDocument() {
 			SDocument doc = getDocument();
 			SDocumentGraph graph = doc.getDocumentGraph();
+			final String annoNamespace = ((Timeline2TokenProperties) getProperties()).getAnnoNamespace();
 
 			Set<SToken> artificialTokenSet = new HashSet<SToken>();
 			ArrayList<SToken> artificialTokens = new ArrayList<SToken>();
@@ -121,6 +140,15 @@ public class Timeline2Token extends PepperManipulatorImpl {
 			if (graph.getTimeline().getEnd() == null) {
 				throw new PepperModuleException(this, "The timeline for document '"+SaltUtil.getGlobalId(doc.getIdentifier())+"' does not contain any points of time. ");
 			}
+			
+			SLayer tokenLayer = null;
+			String tokenLayerProp = ((Timeline2TokenProperties) getProperties()).getTokenLayer();
+			if(tokenLayerProp != null && !tokenLayerProp.isEmpty()) {
+				tokenLayer  =SaltFactory.createSLayer();
+				tokenLayer.setName(tokenLayerProp);
+				graph.addLayer(tokenLayer);
+			}
+			
 			for (int t= 0; t<= graph.getTimeline().getEnd(); t++){
 				// create artificial token
 				STextualRelation textRel = SaltFactory.createSTextualRelation();
@@ -133,11 +161,16 @@ public class Timeline2Token extends PepperManipulatorImpl {
 				sbText.append(" ");
 
 				SToken tok = SaltFactory.createSToken();
+				tok.setName("virtualToken" + t);
 				textRel.setSource(tok);
 				textRel.setTarget(timelineText);
-
+				
 				graph.addNode(tok);
 				graph.addRelation(textRel);
+				
+				if(tokenLayer != null) {
+					tokenLayer.addNode(tok);
+				}
 
 				artificialTokens.add(tok);
 				artificialTokenSet.add(tok);
@@ -177,7 +210,7 @@ public class Timeline2Token extends PepperManipulatorImpl {
 						graph.addRelation(spanRel);
 					}
 
-					copySpan(graph, tok, span);
+					copySpan(graph, tok, span, annoNamespace);
 					copyTokenAttributes(graph, coveredArtificialToken, tok, span);
 
 					// remove token
@@ -197,7 +230,7 @@ public class Timeline2Token extends PepperManipulatorImpl {
 			return (DOCUMENT_STATUS.COMPLETED);
 		}
 
-		private void copySpan(SDocumentGraph graph, SToken tok, SSpan span) {
+		private void copySpan(SDocumentGraph graph, SToken tok, SSpan span, String annoNamespace) {
 			// get the TextualDS which belongs too the token
 			STextualRelation textRel = null;
 			for (Relation e : graph.getOutRelations(tok.getId())) {
@@ -209,10 +242,9 @@ public class Timeline2Token extends PepperManipulatorImpl {
 
 			if (textRel != null) {
 				STextualDS text = textRel.getTarget();
-
 				// span needs to be converted to an annotation
 				SAnnotation spanAnno = SaltFactory.createSAnnotation();
-				spanAnno.setNamespace("annis");
+				spanAnno.setNamespace(annoNamespace);
 				spanAnno.setName(text.getName());
 				spanAnno.setValue(text.getText().substring(textRel.getStart(), textRel.getEnd()));
 
