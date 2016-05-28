@@ -169,7 +169,7 @@ public class OrderRelationAdder extends PepperManipulatorImpl {
 						for (SAnnotation anno : span.getAnnotations()) {
 							if (((SOrderRelationAdderProperties) getProperties()).getSegmentations().contains(anno.getName())) {
 								seg = anno.getName();
-								List<DataSourceSequence> overlapped = graph.getOverlappedDataSourceSequence(span, 
+								List<? extends DataSourceSequence<?>> overlapped = graph.getOverlappedDataSourceSequence(span, 
                   SALT_TYPE.STEXT_OVERLAPPING_RELATION);
 								if (overlapped != null) {
 									for (DataSourceSequence o : overlapped) {
