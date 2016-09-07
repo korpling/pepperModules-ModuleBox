@@ -1,3 +1,5 @@
 /target/
 /META-INF/
 /OSGI-INF/
+*.classpath
+/.settings
