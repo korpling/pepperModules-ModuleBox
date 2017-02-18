@@ -3,3 +3,4 @@
 /OSGI-INF/
 *.classpath
 /.settings
+/.project
