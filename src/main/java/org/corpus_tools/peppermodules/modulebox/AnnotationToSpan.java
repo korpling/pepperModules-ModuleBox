@@ -22,11 +22,12 @@ import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
 import org.corpus_tools.pepper.impl.PepperMapperImpl;
 import org.corpus_tools.pepper.modules.PepperMapper;
+import org.corpus_tools.pepper.modules.PepperModuleProperties;
+import org.corpus_tools.pepper.modules.PepperModuleProperty;
 import org.corpus_tools.salt.common.SDocumentGraph;
 import org.corpus_tools.salt.common.SSpan;
 import org.corpus_tools.salt.common.SToken;
 import org.corpus_tools.salt.core.SAnnotation;
-import org.corpus_tools.salt.core.SNode;
 import org.corpus_tools.salt.graph.Identifier;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -46,6 +47,7 @@ public class AnnotationToSpan extends PepperManipulatorImpl {
     super();
     setName("AnnotationToSpan");
     setVersion("1.0.0");
+    setProperties(new AnnotationToSpanProperties());
   }
   
   @Override
@@ -67,42 +69,71 @@ public class AnnotationToSpan extends PepperManipulatorImpl {
       List<SSpan> spanList = g.getSpans();
       List<SToken> tokenList = g.getTokens();
       
-      final int numOfNodes = tokenList.size() + spanList.size();
+      AnnotationToSpanProperties props = (AnnotationToSpanProperties) getProperties();
+      
+      int numOfNodes = 0;
+      if(props.getSpansFromTokenAnnos()) {
+        numOfNodes += tokenList.size();
+      }
+      if(props.getSplitSpanAnnos()) {
+        numOfNodes += spanList.size();
+      }
       
       int i=0;
-      for(SSpan n : new LinkedList<>(spanList)) {
-        Set<SAnnotation> annos = n.getAnnotations();
-        if(annos != null && annos.size() > 1) {
-          
-          List<SToken> overlappedToken = g.getOverlappedTokens(n);          
-          List<SAnnotation> annoList = new LinkedList<>(annos);
-          
-          for(SAnnotation a : annoList) {
-            SSpan newSpan = g.createSpan(overlappedToken);
-            newSpan.addAnnotation(a);
+      
+      if(props.getSplitSpanAnnos()) {
+        for(SSpan n : new LinkedList<>(spanList)) {
+          Set<SAnnotation> annos = n.getAnnotations();
+          if(annos != null && annos.size() > 1) {
+
+            List<SToken> overlappedToken = g.getOverlappedTokens(n);          
+            List<SAnnotation> annoList = new LinkedList<>(annos);
+
+            for(SAnnotation a : annoList) {
+              SSpan newSpan = g.createSpan(overlappedToken);
+              newSpan.addAnnotation(a);
+            }
           }
+          i++;
+          setProgress((double) i / (double) numOfNodes );
         }
-        i++;
-        setProgress((double) i / (double) numOfNodes );
       }
-      for(SToken t : new LinkedList<>(tokenList)) {
-        Set<SAnnotation> annos = t.getAnnotations();
-        if(annos != null && annos.size() > 1) {
-          
-          List<SAnnotation> annoList = new LinkedList<>(annos);
-          
-          for(SAnnotation a : annoList) {
-            SSpan newSpan = g.createSpan(t);
-            newSpan.addAnnotation(a);
+      
+      if(props.getSpansFromTokenAnnos()) {
+        for(SToken t : new LinkedList<>(tokenList)) {
+          Set<SAnnotation> annos = t.getAnnotations();
+          if(annos != null && annos.size() > 1) {
+
+            List<SAnnotation> annoList = new LinkedList<>(annos);
+
+            for(SAnnotation a : annoList) {
+              SSpan newSpan = g.createSpan(t);
+              newSpan.addAnnotation(a);
+            }
           }
+          i++;
+          setProgress((double) i / (double) numOfNodes );
         }
-        i++;
-        setProgress((double) i / (double) numOfNodes );
       }
       
       return DOCUMENT_STATUS.COMPLETED;
     }
     
+  }
+  
+  public class AnnotationToSpanProperties extends PepperModuleProperties {
+    public AnnotationToSpanProperties() { 
+      this.addProperty(new PepperModuleProperty<>("spansFromTokenAnnos", Boolean.class, "Create span nodes each annotation of each token", Boolean.TRUE));
+      this.addProperty(new PepperModuleProperty<>("splitSpanAnnos", Boolean.class, "Create new span nodes for each span node with more than one annotation.", Boolean.TRUE));
+    }
+    
+    public boolean getSpansFromTokenAnnos() {
+      return (Boolean) this.getProperty("spansFromTokenAnnos").getValue();
+    }
+    
+    public boolean getSplitSpanAnnos() {
+      return (Boolean) this.getProperty("splitSpanAnnos").getValue();
+    }
   }
   
 }
