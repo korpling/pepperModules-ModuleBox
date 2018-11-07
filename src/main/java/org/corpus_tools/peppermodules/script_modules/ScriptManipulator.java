@@ -1,0 +1,113 @@
+/**
+ * Copyright 2009 Humboldt-Universität zu Berlin, INRIA.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ *
+ */
+package org.corpus_tools.peppermodules.script_modules;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Set;
+
+import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
+import org.corpus_tools.pepper.common.PepperConfiguration;
+import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
+import org.corpus_tools.pepper.impl.PepperMapperImpl;
+import org.corpus_tools.pepper.modules.PepperMapper;
+import org.corpus_tools.pepper.modules.PepperModuleProperties;
+import org.corpus_tools.pepper.modules.PepperModuleProperty;
+import org.corpus_tools.pepper.modules.exceptions.PepperModuleException;
+import org.corpus_tools.salt.SaltFactory;
+import org.corpus_tools.salt.common.SDocument;
+import org.corpus_tools.salt.common.SDocumentGraph;
+import org.corpus_tools.salt.common.SMedialDS;
+import org.corpus_tools.salt.common.SMedialRelation;
+import org.corpus_tools.salt.common.SSpan;
+import org.corpus_tools.salt.common.SSpanningRelation;
+import org.corpus_tools.salt.common.STextualDS;
+import org.corpus_tools.salt.common.STextualRelation;
+import org.corpus_tools.salt.common.STimelineRelation;
+import org.corpus_tools.salt.common.SToken;
+import org.corpus_tools.salt.core.SAnnotation;
+import org.corpus_tools.salt.core.SAnnotationContainer;
+import org.corpus_tools.salt.core.SFeature;
+import org.corpus_tools.salt.core.SLayer;
+import org.corpus_tools.salt.core.SRelation;
+import org.corpus_tools.salt.graph.Identifier;
+import org.corpus_tools.salt.graph.LabelableElement;
+import org.corpus_tools.salt.graph.Relation;
+import org.corpus_tools.salt.util.SaltUtil;
+import org.eclipse.emf.common.util.URI;
+import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * 
+ * @author Thomas Krause
+ * @version 1.0
+ * 
+ */
+@Component(name = "ScriptManipulatorComponent", factory = "PepperManipulatorComponentFactory")
+public class ScriptManipulator extends PepperManipulatorImpl {
+	private static final Logger logger = LoggerFactory.getLogger(ScriptManipulator.class);
+
+	public ScriptManipulator() {
+		super();
+		setSupplierContact(URI.createURI(PepperConfiguration.EMAIL));
+		setSupplierHomepage(URI.createURI("https://github.com/korpling/pepperModules-ModuleBox"));
+		setDesc("Executes a defined external script that manipulates the Salt document");
+		// setting name of module
+		this.setName("ScriptManipulator");
+		setProperties(new ScriptManipulatorProperties());
+	}
+
+	public class ScriptManipulatorProperties extends PepperModuleProperties {
+		private final static String PROP_PATH = "path";
+		private final static String PROP_ARGS = "args";
+		private final static String PROP_FORMAT = "format";
+
+		public ScriptManipulatorProperties() {
+			this.addProperty(new PepperModuleProperty<>(PROP_PATH, String.class,
+					"The path to the script file to execute. If this is a relative path, it must be relative to the workflow file.",
+					null, true));
+			this.addProperty(new PepperModuleProperty<>(PROP_ARGS, String.class,
+					"Additional arguments given to the script file.", "", false));
+			this.addProperty(new PepperModuleProperty<>(PROP_FORMAT, String.class,
+					"The format used to write and read from the script. Can be either \"graphml\" or \"saltxml\"",
+					"graphml", false));
+		}
+
+	}
+
+	@Override
+	public PepperMapper createPepperMapper(Identifier sElementId) {
+		PepperMapper mapper = new ScriptMapper();
+		return (mapper);
+	}
+
+	private class ScriptMapper extends PepperMapperImpl {
+
+		@Override
+		public DOCUMENT_STATUS mapSDocument() {
+			// TODO: implement
+			setProgress(1.0);
+			return (DOCUMENT_STATUS.COMPLETED);
+		}
+	}
+}
