@@ -20,6 +20,7 @@ import org.corpus_tools.salt.SALT_TYPE;
 import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.SDocument;
 import org.corpus_tools.salt.common.SDocumentGraph;
+import org.corpus_tools.salt.common.SDocumentGraphObject;
 import org.corpus_tools.salt.core.SNode;
 import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Label;
@@ -218,11 +219,31 @@ public class GraphMLReader {
 
         Map<String, SNode> id2node = new HashMap<>();
         for (Map.Entry<String, GMLNode> nodeEntry : this.nodes.entrySet()) {
-            Object val = null;
             GMLNode node = nodeEntry.getValue();
             SALT_TYPE type = SALT_TYPE.valueOf(node.type);
-            try {
-                SNode obj = (SNode) type.getJavaType().newInstance();
+            SNode obj;
+            switch (type) {
+            case SMEDIAL_DS:
+                obj = SaltFactory.createSMedialDS();
+                break;
+            case STEXTUAL_DS:
+                obj = SaltFactory.createSTextualDS();
+                break;
+            case SSPAN:
+                obj = SaltFactory.createSSpan();
+                break;
+            case SSTRUCTURE:
+                obj = SaltFactory.createSStructure();
+                break;
+            case STOKEN:
+                obj = SaltFactory.createSToken();
+                break;
+            default:
+                obj = null;
+            }
+            if (obj == null) {
+                log.warn("Can't create Salt object from type {}", type.toString());
+            } else {
                 obj.setName(nodeEntry.getKey());
                 for (GMLData data : node.data) {
                     // get the corresponding key entry and parse the value according to the type of
@@ -235,17 +256,41 @@ public class GraphMLReader {
                 }
                 g.addNode(obj);
                 id2node.put(nodeEntry.getKey(), obj);
-            } catch (InstantiationException | IllegalAccessException e) {
-                log.warn("Can't create Salt object from type {}", type.toString());
+
             }
         }
         for (Map.Entry<String, GMLEdge> edgeEntry : this.edges.entrySet()) {
-            Object val = null;
             GMLEdge edge = edgeEntry.getValue();
             SALT_TYPE type = SALT_TYPE.valueOf(edge.type);
-            try {
-                SRelation obj = (SRelation) type.getJavaType().newInstance();
-
+            SRelation obj;
+            switch (type) {
+            case SDOMINANCE_RELATION:
+                obj = SaltFactory.createSDominanceRelation();
+                break;
+            case SMEDIAL_RELATION:
+                obj = SaltFactory.createSMedialRelation();
+                break;
+            case SORDER_RELATION:
+                obj = SaltFactory.createSOrderRelation();
+                break;
+            case SPOINTING_RELATION:
+                obj = SaltFactory.createSPointingRelation();
+                break;
+            case SSPANNING_RELATION:
+                obj = SaltFactory.createSSpanningRelation();
+                break;
+            case STEXTUAL_RELATION:
+                obj = SaltFactory.createSTextualRelation();
+                break;
+            case STIMELINE_RELATION:
+                obj = SaltFactory.createSTimelineRelation();
+                break;
+            default:
+                obj = null;
+            }
+            if (obj == null) {
+                log.warn("Can't create Salt object from type {}", type.toString());
+            } else {
                 SNode source = id2node.get(edge.source);
                 SNode target = id2node.get(edge.target);
                 if (source != null && target != null) {
@@ -263,11 +308,8 @@ public class GraphMLReader {
                     }
                     g.addRelation(obj);
                 }
-            } catch (InstantiationException | IllegalAccessException e) {
-                log.warn("Can't create Salt object from type {}", type.toString());
             }
         }
-        // TODO: map edges
 
         this.nodes.clear();
         this.edges.clear();

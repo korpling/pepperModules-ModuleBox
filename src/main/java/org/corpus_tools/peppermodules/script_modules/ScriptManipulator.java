@@ -208,7 +208,7 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 									getProps().getFormat());
 						}
 					} catch (IOException | ParserConfigurationException | SAXException ex) {
-						throw new PepperModuleException(ScriptManipulator.this,
+						throw new PepperModuleException(
 								"Could not read from the manipulator script " + getProps().getPath(), ex);
 					}
 				};
@@ -221,14 +221,14 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 					PipedInputStream stderr = new PipedInputStream(errStream);
 					String errorMsg = CharStreams.toString(new InputStreamReader(stderr, StandardCharsets.UTF_8));
 
-					throw new PepperModuleException(ScriptManipulator.this, "Manipulator script " + getProps().getPath()
+					throw new PepperModuleException("Manipulator script " + getProps().getPath()
 							+ " returned error code " + resultHandler.getExitValue() + ":\n" + errorMsg);
 				}
 
 				readerThread.join();
 
 			} catch (IOException | InterruptedException ex) {
-				throw new PepperModuleException(ScriptManipulator.this,
+				throw new PepperModuleException(
 						"Could not execute the manipulator script " + getProps().getPath(), ex);
 			}
 
