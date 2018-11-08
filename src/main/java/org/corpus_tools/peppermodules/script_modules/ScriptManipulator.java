@@ -17,13 +17,35 @@
  */
 package org.corpus_tools.peppermodules.script_modules;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Set;
+import java.util.Map;
 
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
+
+import com.google.common.io.CharStreams;
+
+import org.apache.commons.exec.CommandLine;
+import org.apache.commons.exec.DefaultExecuteResultHandler;
+import org.apache.commons.exec.DefaultExecutor;
+import org.apache.commons.exec.PumpStreamHandler;
+import org.apache.commons.exec.environment.EnvironmentUtils;
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
 import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
@@ -32,30 +54,17 @@ import org.corpus_tools.pepper.modules.PepperMapper;
 import org.corpus_tools.pepper.modules.PepperModuleProperties;
 import org.corpus_tools.pepper.modules.PepperModuleProperty;
 import org.corpus_tools.pepper.modules.exceptions.PepperModuleException;
-import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.SDocument;
 import org.corpus_tools.salt.common.SDocumentGraph;
-import org.corpus_tools.salt.common.SMedialDS;
-import org.corpus_tools.salt.common.SMedialRelation;
-import org.corpus_tools.salt.common.SSpan;
-import org.corpus_tools.salt.common.SSpanningRelation;
-import org.corpus_tools.salt.common.STextualDS;
-import org.corpus_tools.salt.common.STextualRelation;
-import org.corpus_tools.salt.common.STimelineRelation;
-import org.corpus_tools.salt.common.SToken;
-import org.corpus_tools.salt.core.SAnnotation;
-import org.corpus_tools.salt.core.SAnnotationContainer;
-import org.corpus_tools.salt.core.SFeature;
-import org.corpus_tools.salt.core.SLayer;
-import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Identifier;
-import org.corpus_tools.salt.graph.LabelableElement;
-import org.corpus_tools.salt.graph.Relation;
-import org.corpus_tools.salt.util.SaltUtil;
+import org.corpus_tools.salt.util.internal.persistence.GraphMLWriter;
+import org.corpus_tools.salt.util.internal.persistence.SaltXML10Handler;
+import org.corpus_tools.salt.util.internal.persistence.SaltXML10Writer;
 import org.eclipse.emf.common.util.URI;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.xml.sax.SAXException;
 
 /**
  * 
@@ -78,13 +87,15 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 	}
 
 	public class ScriptManipulatorProperties extends PepperModuleProperties {
+		private static final long serialVersionUID = 4531683409905022856L;
 		private final static String PROP_PATH = "path";
 		private final static String PROP_ARGS = "args";
 		private final static String PROP_FORMAT = "format";
 
 		public ScriptManipulatorProperties() {
 			this.addProperty(new PepperModuleProperty<>(PROP_PATH, String.class,
-					"The path to the script file to execute. If this is a relative path, it must be relative to the workflow file.",
+					"The path to the script file to execute. If this is a relative path, it must be relative to the "
+							+ "workflow file.",
 					null, true));
 			this.addProperty(new PepperModuleProperty<>(PROP_ARGS, String.class,
 					"Additional arguments given to the script file.", "", false));
@@ -93,6 +104,22 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 					"graphml", false));
 		}
 
+		public String getPath() {
+			return (String) getProperty(PROP_PATH).getValue();
+		}
+
+		public String getArgs() {
+			return (String) getProperty(PROP_ARGS).getValue();
+		}
+
+		public String getFormat() {
+			return (String) getProperty(PROP_FORMAT).getValue();
+		}
+
+	}
+
+	protected ScriptManipulatorProperties getProps() {
+		return (ScriptManipulatorProperties) this.getProperties();
 	}
 
 	@Override
@@ -103,9 +130,107 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 
 	private class ScriptMapper extends PepperMapperImpl {
 
+		private final XMLOutputFactory XML_OUT_FACTORY = XMLOutputFactory.newInstance();
+		private final SAXParserFactory SAX_PARSER_FACTORY = SAXParserFactory.newInstance();
+
 		@Override
 		public DOCUMENT_STATUS mapSDocument() {
-			// TODO: implement
+			final SDocument doc = getDocument();
+
+			// create a process with the requested parameter
+			File baseDir = new File(getModuleController().getJob().getBaseDir().toFileString());
+			try {
+
+				CommandLine cmdLine = new CommandLine(getProps().getPath());
+				if (getProps().getArgs() != null) {
+					cmdLine = cmdLine.addArguments(getProps().getArgs());
+				}
+				Map<String, String> env = EnvironmentUtils.getProcEnvironment();
+				env.put("DOCUMENTNAME", doc.getName());
+				env.put("FORMAT", getProps().getFormat().toLowerCase());
+
+				DefaultExecutor executor = new DefaultExecutor();
+				executor.setWorkingDirectory(baseDir);
+
+				// record the output streams
+				final PipedOutputStream resultStream = new PipedOutputStream();
+				final ByteArrayOutputStream errStream = new ByteArrayOutputStream();
+				final PipedInputStream inStream = new PipedInputStream();
+				executor.setStreamHandler(new PumpStreamHandler(resultStream, errStream, inStream));
+				// create an error handler
+				DefaultExecuteResultHandler resultHandler = new DefaultExecuteResultHandler();
+
+				// execute asynchronously
+				executor.execute(cmdLine, env, resultHandler);
+
+				// create the representation in the requested format and write it to the
+				// standard input of the process
+				Runnable writer = () -> {
+					try {
+						PipedOutputStream stdin = new PipedOutputStream(inStream);
+						switch (getProps().getFormat().toLowerCase()) {
+						case "graphml":
+							GraphMLWriter.convertFromSalt(stdin, doc);
+							break;
+						case "saltxml":
+							XMLStreamWriter xmlWriter;
+
+							xmlWriter = XML_OUT_FACTORY.createXMLStreamWriter(stdin);
+
+							new SaltXML10Writer().writeObjects(xmlWriter, doc.getDocumentGraph());
+							xmlWriter.flush();
+							xmlWriter.close();
+
+							break;
+						default:
+						}
+					} catch (XMLStreamException | IOException ex) {
+						throw new PepperModuleException(
+								"Could not write to the manipulator script " + getProps().getPath(), ex);
+					}
+				};
+				Thread writerThread = new Thread(writer);
+				writerThread.start();
+
+				Runnable reader = () -> {
+					try {
+						PipedInputStream stdout = new PipedInputStream(resultStream);
+
+						switch (getProps().getFormat().toLowerCase()) {
+						case "graphml":
+							// TODO map graphml back
+							break;
+						case "saltxml":
+							SaltXML10Handler saltHandler = new SaltXML10Handler();
+							SAXParser xmlParser = SAX_PARSER_FACTORY.newSAXParser();
+							xmlParser.parse(stdout, saltHandler);
+							getDocument().setDocumentGraph((SDocumentGraph) saltHandler.getSaltObject());
+							break;
+						default:
+							logger.error("Invalid script-exchange format {} configured in properties.",
+									getProps().getFormat());
+						}
+					} catch (IOException | ParserConfigurationException | SAXException ex) {
+						throw new PepperModuleException(
+								"Could not read from the manipulator script " + getProps().getPath(), ex);
+					}
+				};
+				Thread readerThread = new Thread(reader);
+				readerThread.start();
+
+				resultHandler.waitFor();
+				if (resultHandler.getExitValue() != 0) {
+					// get stderr
+					throw new PepperModuleException("Manipulator script " + getProps().getPath()
+							+ " returned error code " + resultHandler.getExitValue());
+				}
+
+				readerThread.join();
+
+			} catch (IOException | InterruptedException ex) {
+				throw new PepperModuleException("Could not execute the manipulator script " + getProps().getPath(), ex);
+			}
+
 			setProgress(1.0);
 			return (DOCUMENT_STATUS.COMPLETED);
 		}
