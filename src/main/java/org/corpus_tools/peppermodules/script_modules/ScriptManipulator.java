@@ -17,19 +17,12 @@
  */
 package org.corpus_tools.peppermodules.script_modules;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
-import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -38,8 +31,6 @@ import javax.xml.parsers.SAXParserFactory;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
-
-import com.google.common.io.CharStreams;
 
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecuteResultHandler;
@@ -198,7 +189,10 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 
 						switch (getProps().getFormat().toLowerCase()) {
 						case "graphml":
-							// TODO map graphml back
+							List<SDocument> docs = GraphMLReader.convertToSalt(stdout);
+							if(!docs.isEmpty()) {
+								setDocument(docs.get(0));
+							}
 							break;
 						case "saltxml":
 							SaltXML10Handler saltHandler = new SaltXML10Handler();
