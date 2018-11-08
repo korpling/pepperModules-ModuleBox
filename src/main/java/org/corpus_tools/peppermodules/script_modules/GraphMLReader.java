@@ -15,7 +15,7 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
-import org.corpus_tools.pepper.modules.exceptions.PepperModuleException;
+import org.corpus_tools.pepper.exceptions.PepperException;
 import org.corpus_tools.salt.SALT_TYPE;
 import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.SDocument;
@@ -118,9 +118,9 @@ public class GraphMLReader {
                         }
 
                         currentGraphID = Optional.ofNullable(xml.getAttributeValue(null, "id"));
-                        if (!"directed".equals("edgedefault")) {
-                            throw new PepperModuleException(
-                                    "GraphML edges are not directed for graph " + currentGraphID.toString());
+                        if (!"directed".equals(xml.getAttributeValue(null, "edgedefault"))) {
+                            log.warn("GraphML edges are not directed for graph {} (but will be interpreted as such)",
+                                    currentGraphID.toString());
                         }
 
                     } else if ("node".equals(xml.getLocalName())) {
@@ -153,7 +153,7 @@ public class GraphMLReader {
                 }
                 break;
             case XMLStreamConstants.START_ELEMENT:
-                if("data".equals(xml.getLocalName())) {
+                if ("data".equals(xml.getLocalName())) {
                     String key = xml.getAttributeValue(null, "key");
                     String value = xml.getElementText();
                     result.add(new GMLData(key, value));
@@ -167,20 +167,20 @@ public class GraphMLReader {
 
     private void mapNode() throws XMLStreamException {
         String id = xml.getAttributeValue(null, "id");
-        if(id != null) {
+        if (id != null) {
             // get all possible "data" sub-elements
             List<GMLData> data = parseData("node");
             // find the type data element
             Optional<String> type = Optional.empty();
             ListIterator<GMLData> it = data.listIterator();
-            while(it.hasNext()) {
+            while (it.hasNext()) {
                 GMLData d = it.next();
-                if("salt::type".equals(d.key)) {
+                if ("salt::type".equals(d.key)) {
                     type = Optional.ofNullable(d.value);
                     it.remove();
                 }
             }
-            if(type.isPresent()) {
+            if (type.isPresent()) {
                 GMLNode node = new GMLNode(type.get(), data);
                 this.nodes.putIfAbsent(id, node);
             }
@@ -191,21 +191,21 @@ public class GraphMLReader {
         String id = xml.getAttributeValue(null, "id");
         String source = xml.getAttributeValue(null, "source");
         String target = xml.getAttributeValue(null, "target");
-        if(id != null && source != null && target != null) {
+        if (id != null && source != null && target != null) {
             // get all possible "data" sub-elements
             List<GMLData> data = parseData("edge");
-            
+
             // find the type data element
             Optional<String> type = Optional.empty();
             ListIterator<GMLData> it = data.listIterator();
-            while(it.hasNext()) {
+            while (it.hasNext()) {
                 GMLData d = it.next();
-                if("salt::type".equals(d.key)) {
+                if ("salt::type".equals(d.key)) {
                     type = Optional.ofNullable(d.value);
                     it.remove();
                 }
             }
-            if(type.isPresent()) {
+            if (type.isPresent()) {
                 GMLEdge node = new GMLEdge(type.get(), source, target, data);
                 this.edges.putIfAbsent(id, node);
             }
@@ -339,7 +339,7 @@ public class GraphMLReader {
             return reader.documents;
 
         } catch (XMLStreamException ex) {
-            throw new PepperModuleException("GraphML reading excpetion", ex);
+            throw new PepperException("GraphML reading excpetion", ex);
         }
     }
 

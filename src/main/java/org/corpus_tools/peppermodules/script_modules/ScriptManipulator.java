@@ -17,11 +17,12 @@
  */
 package org.corpus_tools.peppermodules.script_modules;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +32,8 @@ import javax.xml.parsers.SAXParserFactory;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
+
+import com.google.common.io.CharStreams;
 
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecuteResultHandler;
@@ -145,7 +148,7 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 
 				// record the output streams
 				final PipedOutputStream resultStream = new PipedOutputStream();
-				final ByteArrayOutputStream errStream = new ByteArrayOutputStream();
+				final PipedOutputStream errStream = new PipedOutputStream();
 				final PipedInputStream inStream = new PipedInputStream();
 				executor.setStreamHandler(new PumpStreamHandler(resultStream, errStream, inStream));
 				// create an error handler
@@ -190,7 +193,7 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 						switch (getProps().getFormat().toLowerCase()) {
 						case "graphml":
 							List<SDocument> docs = GraphMLReader.convertToSalt(stdout);
-							if(!docs.isEmpty()) {
+							if (!docs.isEmpty()) {
 								setDocument(docs.get(0));
 							}
 							break;
@@ -205,7 +208,7 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 									getProps().getFormat());
 						}
 					} catch (IOException | ParserConfigurationException | SAXException ex) {
-						throw new PepperModuleException(
+						throw new PepperModuleException(ScriptManipulator.this,
 								"Could not read from the manipulator script " + getProps().getPath(), ex);
 					}
 				};
@@ -215,14 +218,18 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 				resultHandler.waitFor();
 				if (resultHandler.getExitValue() != 0) {
 					// get stderr
-					throw new PepperModuleException("Manipulator script " + getProps().getPath()
-							+ " returned error code " + resultHandler.getExitValue());
+					PipedInputStream stderr = new PipedInputStream(errStream);
+					String errorMsg = CharStreams.toString(new InputStreamReader(stderr, StandardCharsets.UTF_8));
+
+					throw new PepperModuleException(ScriptManipulator.this, "Manipulator script " + getProps().getPath()
+							+ " returned error code " + resultHandler.getExitValue() + ":\n" + errorMsg);
 				}
 
 				readerThread.join();
 
 			} catch (IOException | InterruptedException ex) {
-				throw new PepperModuleException("Could not execute the manipulator script " + getProps().getPath(), ex);
+				throw new PepperModuleException(ScriptManipulator.this,
+						"Could not execute the manipulator script " + getProps().getPath(), ex);
 			}
 
 			setProgress(1.0);
