@@ -244,14 +244,19 @@ public class GraphMLReader {
             if (obj == null) {
                 log.warn("Can't create Salt object from type {}", type.toString());
             } else {
-                obj.setName(nodeEntry.getKey());
                 for (GMLData data : node.data) {
                     // get the corresponding key entry and parse the value according to the type of
                     // the key
                     GMLKey key = this.keys.get(data.key);
                     if (key != null && (key.forObj == GMLKeyFor.all || key.forObj == GMLKeyFor.node)) {
-                        Label lbl = createLabel(key, data.value);
-                        obj.addLabel(lbl);
+                        if ("salt::SNAME".equals(key.qname)) {
+                            obj.setName(data.value);
+                        } else if ("salt::id".equals(key.qname)) {
+                            obj.setId(data.value);
+                        } else {
+                            Label lbl = createLabel(key, data.value);
+                            obj.addLabel(lbl);
+                        }
                     }
                 }
                 g.addNode(obj);
@@ -302,8 +307,14 @@ public class GraphMLReader {
                         // the key
                         GMLKey key = this.keys.get(data.key);
                         if (key != null && (key.forObj == GMLKeyFor.all || key.forObj == GMLKeyFor.edge)) {
-                            Label lbl = createLabel(key, data.value);
-                            obj.addLabel(lbl);
+                            if ("salt::SNAME".equals(key.qname)) {
+                                obj.setName(data.value);
+                            } else if ("salt::id".equals(key.qname)) {
+                                obj.setId(data.value);
+                            } else {
+                                Label lbl = createLabel(key, data.value);
+                                obj.addLabel(lbl);
+                            }
                         }
                     }
                     g.addRelation(obj);
