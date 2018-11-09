@@ -139,8 +139,8 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 					cmdLine = cmdLine.addArguments(getProps().getArgs());
 				}
 				Map<String, String> env = EnvironmentUtils.getProcEnvironment();
-				env.put("DOCUMENTNAME", doc.getName());
-				env.put("FORMAT", getProps().getFormat().toLowerCase());
+				env.put("PEPPER_DOCUMENT_NAME", doc.getName());
+				env.put("PEPPER_FORMAT", getProps().getFormat().toLowerCase());
 
 				DefaultExecutor executor = new DefaultExecutor();
 				executor.setWorkingDirectory(baseDir);
