@@ -89,7 +89,7 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 			this.addProperty(new PepperModuleProperty<>(PROP_PATH, String.class,
 					"The path to the script file to execute. If this is a relative path, it must be relative to the "
 							+ "workflow file.",
-					null, true));
+					null, false));
 			this.addProperty(new PepperModuleProperty<>(PROP_ARGS, String.class,
 					"Additional arguments given to the script file.", "", false));
 			this.addProperty(new PepperModuleProperty<>(PROP_FORMAT, String.class,
@@ -133,8 +133,13 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 			// create a process with the requested parameter
 			File baseDir = new File(getModuleController().getJob().getBaseDir().toFileString());
 			try {
+				String path = getProps().getPath();
+				if(path == null) {
+					// nothing to do
+					return DOCUMENT_STATUS.COMPLETED;
+				}
 
-				CommandLine cmdLine = new CommandLine(getProps().getPath());
+				CommandLine cmdLine = new CommandLine(path);
 				if (getProps().getArgs() != null) {
 					cmdLine = cmdLine.addArguments(getProps().getArgs());
 				}
