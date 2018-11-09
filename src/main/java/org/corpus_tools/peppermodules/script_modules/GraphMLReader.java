@@ -15,6 +15,7 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.corpus_tools.pepper.exceptions.PepperException;
 import org.corpus_tools.salt.SALT_TYPE;
 import org.corpus_tools.salt.SaltFactory;
@@ -25,8 +26,10 @@ import org.corpus_tools.salt.common.SMedialDS;
 import org.corpus_tools.salt.common.STimeline;
 import org.corpus_tools.salt.core.SNode;
 import org.corpus_tools.salt.core.SRelation;
+import org.corpus_tools.salt.core.impl.SFeatureImpl;
 import org.corpus_tools.salt.graph.Label;
 import org.corpus_tools.salt.graph.impl.LabelImpl;
+import org.corpus_tools.salt.util.SaltUtil;
 import org.corpus_tools.salt.util.internal.persistence.GraphMLWriter;
 import org.eclipse.emf.common.util.URI;
 import org.slf4j.Logger;
@@ -312,6 +315,8 @@ public class GraphMLReader {
                                     obj.setName(data.value);
                                 } else if ("salt::id".equals(key.qname)) {
                                     obj.setId(data.value);
+                                } else if("salt::type".equals(key.qname)) {
+                                    // ignore
                                 } else {
                                     Label lbl = createLabel(key, data.value);
                                     obj.addLabel(lbl);
@@ -331,7 +336,15 @@ public class GraphMLReader {
     }
 
     private Label createLabel(GMLKey key, String value) {
-        Label result = new LabelImpl();
+
+        Pair<String, String> splittedQName = SaltUtil.splitQName(key.qname);
+        Label result;
+        if("salt".equals(splittedQName.getLeft())) {
+            // salt labels are in general features
+            result = SaltFactory.createSFeature();
+        } else {
+            result = SaltFactory.createSAnnotation();
+        }
         Object labelVal = null;
         switch (key.type.toLowerCase()) {
         case "boolean":
