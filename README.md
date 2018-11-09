@@ -17,7 +17,7 @@ The script will also get two environment variables set:
 | ---------------- | ---------------- | ------------------- | ------------- |
 | path             | String           | mandatory           | --            |
 | format           | String           | optional            | graphml       |
-| args             | String           | optional            | graphml       |
+| args             | String           | optional            | --            |
 
 ### path
 
