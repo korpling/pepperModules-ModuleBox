@@ -25,9 +25,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.management.Attribute;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -37,7 +39,6 @@ import org.corpus_tools.salt.common.SDocument;
 import org.corpus_tools.salt.common.SDocumentGraph;
 import org.corpus_tools.salt.core.SNode;
 import org.corpus_tools.salt.core.SRelation;
-import org.corpus_tools.salt.graph.IdentifiableElement;
 import org.corpus_tools.salt.graph.Label;
 import org.corpus_tools.salt.graph.LabelableElement;
 import org.corpus_tools.salt.graph.Node;
@@ -72,33 +73,32 @@ public class GraphMLWriter {
 			w.writeAttribute("http://www.w3.org/2001/XMLSchema-instance", "schemaLocation",
 					NS + " http://graphml.graphdrawing.org/xmlns/1.1/graphml.xsd");
 
-			Set<String> existingKeys = new HashSet<>();
 			IDManager ids = new IDManager();
 
 			// we always use the "salt::type" label
 			w.writeStartElement(NS, "key");
-			w.writeAttribute("id", "salt::type");
+		
+			w.writeAttribute("id", ids.getID(new AttributeSignature("salt::type", "string")));
 			w.writeAttribute("attr.name", "salt::type");
 			w.writeAttribute("for", "all");
 			w.writeAttribute("attr.type", "string");
 			w.writeEndElement();
-			existingKeys.add("salt::type");
 
 			if (docs != null) {
 				// first get all possible label names and write them as "key"
 				for (SDocument doc : docs) {
 					SDocumentGraph g = doc.getDocumentGraph();
 					if (g != null) {
-						writeKeys(w, g.getNodes(), existingKeys);
-						writeKeys(w, g.getRelations(), existingKeys);
+						writeKeys(w, g.getNodes(), ids);
+						writeKeys(w, g.getRelations(), ids);
 						if (g.getDocument() != null) {
-							writeKeys(w, g.getDocument().getLabels(), existingKeys);
+							writeKeys(w, g.getDocument().getLabels(), ids);
 						}
 					}
 				}
 				// write the actual graphs
 				for (SDocument d : docs) {
-					writeSDocumentGraph(w, d.getDocumentGraph(), ids, existingKeys, true);
+					writeSDocumentGraph(w, d.getDocumentGraph(), ids, true);
 				}
 			}
 			w.writeEndDocument();
@@ -112,38 +112,27 @@ public class GraphMLWriter {
 	}
 
 	private static void writeKeys(XMLStreamWriter w, Collection<? extends LabelableElement> elements,
-			Set<String> existing) throws XMLStreamException {
+			IDManager ids) throws XMLStreamException {
 		if (elements != null && !elements.isEmpty()) {
 			for (LabelableElement e : elements) {
 				Collection<Label> labels = e.getLabels();
 				if (labels != null && !labels.isEmpty()) {
 					for (Label l : labels) {
-						String id = l.getQName();
-						if (!existing.contains(id)) {
-							Object o = l.getValue();
-							String type = null;
-							if (o instanceof Boolean) {
-								type = "boolean";
-							} else if (o instanceof Integer) {
-								type = "int";
-							} else if (o instanceof Long) {
-								type = "long";
-							} else if (o instanceof Float) {
-								type = "float";
-							} else if (o instanceof Double) {
-								type = "double";
-							} else if (o instanceof String) {
-								type = "string";
-							}
-							if (type != null) {
+						
+						Object o = l.getValue();
+						String type = getType(o);
+						if (type != null) {
+							AttributeSignature attSignature = new AttributeSignature(l.getQName(), type);
+							// don't write a signature twice
+							if (!ids.hasID(attSignature)) {
+								String id = ids.getID(attSignature);
 								w.writeStartElement(NS, "key");
-								w.writeAttribute("id", l.getQName());
+								w.writeAttribute("id", id);
 								w.writeAttribute("attr.name", l.getQName());
 								w.writeAttribute("for", "all");
 								w.writeAttribute("attr.type", type);
 
 								w.writeEndElement();
-								existing.add(id);
 							}
 						}
 					}
@@ -152,17 +141,34 @@ public class GraphMLWriter {
 		}
 	}
 
-	private static void writeLabels(XMLStreamWriter w, Collection<Label> labels, Set<String> existingKeys)
+	private static String getType(Object o) {
+		String type = null;
+		if (o instanceof Boolean) {
+			type = "boolean";
+		} else if (o instanceof Integer) {
+			type = "int";
+		} else if (o instanceof Long) {
+			type = "long";
+		} else if (o instanceof Float) {
+			type = "float";
+		} else if (o instanceof Double) {
+			type = "double";
+		} else if (o instanceof String) {
+			type = "string";
+		}
+		return type;
+	}
+
+	private static void writeLabels(XMLStreamWriter w, Collection<Label> labels, 
+		IDManager ids)
 			throws XMLStreamException {
 		if (labels != null && !labels.isEmpty()) {
 			for (Label l : labels) {
-				String key = l.getQName();
-				if (existingKeys.contains(key)) {
-					w.writeStartElement(NS, "data");
-					w.writeAttribute("key", key);
-					w.writeCharacters("" + l.getValue());
-					w.writeEndElement();
-				}
+				AttributeSignature key = new AttributeSignature(l.getQName(), getType(l.getValue()));
+				w.writeStartElement(NS, "data");
+				w.writeAttribute("key", ids.getID(key));
+				w.writeCharacters("" + l.getValue());
+				w.writeEndElement();
 			}
 		}
 	}
@@ -174,7 +180,7 @@ public class GraphMLWriter {
 	 * @param o
 	 * @throws XMLStreamException
 	 */
-	private static void writeType(XMLStreamWriter w, Object o) throws XMLStreamException {
+	private static void writeType(XMLStreamWriter w, Object o, IDManager ids) throws XMLStreamException {
 		Set<SALT_TYPE> saltTypes = SALT_TYPE.class2SaltType(o.getClass());
 
 		if (!saltTypes.isEmpty()) {
@@ -198,39 +204,40 @@ public class GraphMLWriter {
 			}
 
 			if (mostSpecificType != null) {
+				AttributeSignature attSign = new AttributeSignature("salt::type", "string");
 				w.writeStartElement(NS, "data");
-				w.writeAttribute("key", "salt::type");
+				w.writeAttribute("key", ids.getID(attSign));
 				w.writeCharacters(mostSpecificType.name());
 				w.writeEndElement();
 			}
 		}
 	}
 
-	private static void writeNode(XMLStreamWriter w, Node c, IDManager ids, Set<String> existingKeys)
+	private static void writeNode(XMLStreamWriter w, Node c, IDManager ids)
 			throws XMLStreamException {
 		w.writeStartElement(NS, "node");
 		w.writeAttribute("id", ids.getID(c));
 
-		writeType(w, c);
-		writeLabels(w, c.getLabels(), existingKeys);
+		writeType(w, c, ids);
+		writeLabels(w, c.getLabels(), ids);
 		w.writeEndElement();
 	}
 
-	private static void writeEdge(XMLStreamWriter w, Relation r, IDManager ids, Set<String> existingKeys)
+	private static void writeEdge(XMLStreamWriter w, Relation r, IDManager ids)
 			throws XMLStreamException {
 		w.writeStartElement(NS, "edge");
 		w.writeAttribute("id", ids.getID(r));
 		w.writeAttribute("source", ids.getID(r.getSource()));
 		w.writeAttribute("target", ids.getID(r.getTarget()));
 
-		writeType(w, r);
-		writeLabels(w, r.getLabels(), existingKeys);
+		writeType(w, r, ids);
+		writeLabels(w, r.getLabels(), ids);
 
 		w.writeEndElement();
 	}
 
 	private static void writeSDocumentGraph(XMLStreamWriter w, SDocumentGraph g, IDManager ids,
-			Set<String> existingKeys, boolean includeDocLabels) throws XMLStreamException {
+			boolean includeDocLabels) throws XMLStreamException {
 		if (g == null) {
 			return;
 
@@ -244,16 +251,16 @@ public class GraphMLWriter {
 			w.writeAttribute("edgedefault", "directed");
 
 			if (includeDocLabels && g.getDocument() != null) {
-				writeLabels(w, g.getDocument().getLabels(), existingKeys);
+				writeLabels(w, g.getDocument().getLabels(),  ids);
 			}
 
 			for (SNode n : nodes) {
-				writeNode(w, n, ids, existingKeys);
+				writeNode(w, n, ids);
 			}
 
 			if (relations != null) {
 				for (SRelation e : relations) {
-					writeEdge(w, e, ids, existingKeys);
+					writeEdge(w, e, ids);
 				}
 			}
 
@@ -261,12 +268,42 @@ public class GraphMLWriter {
 		}
 	}
 
+	private static class AttributeSignature {
+		final String qname;
+		final String type;
+
+		public AttributeSignature(String qname, String type) {
+			this.qname = qname;
+			this.type = type;
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(qname, type);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (obj != null && obj instanceof AttributeSignature) {
+				AttributeSignature other = (AttributeSignature) obj;
+				return Objects.equals(this.qname, other.qname) && Objects.equals(this.type, other.type);
+			} else {
+				return false;
+			}
+		}
+	}
+
 	private static class IDManager {
 		private final AtomicLong counter = new AtomicLong(0);
 
-		private final Map<IdentifiableElement, String> existing = new HashMap<>();
+		private final Map<Object, String> existing = new HashMap<>();
 
-		private String getID(IdentifiableElement e) {
+		public boolean hasID(Object e) {
+			String id = existing.get(e);
+			return id != null;
+		}
+
+		public String getID(Object e) {
 
 			String id = existing.get(e);
 			if (id == null) {
