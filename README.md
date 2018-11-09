@@ -3,7 +3,7 @@ This repository contains several smaller general purpose Pepper modules.
 # ScriptManipulator
 
 A module to execute any script from the local file system on the 
-document graph of each document. The script get the document graph in the 
+document graph of each document. The script gets the document graph in the 
 specified format via standard input, must map the document graph and write
 the result in the same format to the standard output.
 
