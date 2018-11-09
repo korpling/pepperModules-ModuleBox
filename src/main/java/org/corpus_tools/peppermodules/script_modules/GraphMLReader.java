@@ -21,11 +21,14 @@ import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.SDocument;
 import org.corpus_tools.salt.common.SDocumentGraph;
 import org.corpus_tools.salt.common.SDocumentGraphObject;
+import org.corpus_tools.salt.common.SMedialDS;
+import org.corpus_tools.salt.common.STimeline;
 import org.corpus_tools.salt.core.SNode;
 import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Label;
 import org.corpus_tools.salt.graph.impl.LabelImpl;
 import org.corpus_tools.salt.util.internal.persistence.GraphMLWriter;
+import org.eclipse.emf.common.util.URI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,24 +79,20 @@ public class GraphMLReader {
     }
 
     private static class GMLNode {
-        final String type;
         final List<GMLData> data;
 
-        protected GMLNode(String type, List<GMLData> data) {
-            this.type = type;
+        protected GMLNode(List<GMLData> data) {
             this.data = data;
         }
     }
 
     private static class GMLEdge {
 
-        final String type;
         final String source;
         final String target;
         final List<GMLData> data;
 
-        protected GMLEdge(String type, String source, String target, List<GMLData> data) {
-            this.type = type;
+        protected GMLEdge(String source, String target, List<GMLData> data) {
             this.source = source;
             this.target = target;
             this.data = data;
@@ -171,20 +170,9 @@ public class GraphMLReader {
         if (id != null) {
             // get all possible "data" sub-elements
             List<GMLData> data = parseData("node");
-            // find the type data element
-            Optional<String> type = Optional.empty();
-            ListIterator<GMLData> it = data.listIterator();
-            while (it.hasNext()) {
-                GMLData d = it.next();
-                if ("salt::type".equals(d.key)) {
-                    type = Optional.ofNullable(d.value);
-                    it.remove();
-                }
-            }
-            if (type.isPresent()) {
-                GMLNode node = new GMLNode(type.get(), data);
-                this.nodes.putIfAbsent(id, node);
-            }
+            GMLNode node = new GMLNode(data);
+            this.nodes.putIfAbsent(id, node);
+
         }
     }
 
@@ -197,20 +185,20 @@ public class GraphMLReader {
             List<GMLData> data = parseData("edge");
 
             // find the type data element
-            Optional<String> type = Optional.empty();
-            ListIterator<GMLData> it = data.listIterator();
-            while (it.hasNext()) {
-                GMLData d = it.next();
-                if ("salt::type".equals(d.key)) {
-                    type = Optional.ofNullable(d.value);
-                    it.remove();
-                }
-            }
-            if (type.isPresent()) {
-                GMLEdge node = new GMLEdge(type.get(), source, target, data);
-                this.edges.putIfAbsent(id, node);
+            GMLEdge node = new GMLEdge(source, target, data);
+            this.edges.putIfAbsent(id, node);
+        }
+    }
+
+    private Optional<String> getType(List<GMLData> data) {
+        // iterate over all items and the the "salt::type" entry
+        for (GMLData d : data) {
+            GMLKey k = keys.get(d.key);
+            if (k != null && "salt::type".equals(k.qname)) {
+                return Optional.ofNullable(d.value);
             }
         }
+        return Optional.empty();
     }
 
     private void mapDocument() {
@@ -220,104 +208,118 @@ public class GraphMLReader {
         Map<String, SNode> id2node = new HashMap<>();
         for (Map.Entry<String, GMLNode> nodeEntry : this.nodes.entrySet()) {
             GMLNode node = nodeEntry.getValue();
-            SALT_TYPE type = SALT_TYPE.valueOf(node.type);
-            SNode obj;
-            switch (type) {
-            case SMEDIAL_DS:
-                obj = SaltFactory.createSMedialDS();
-                break;
-            case STEXTUAL_DS:
-                obj = SaltFactory.createSTextualDS();
-                break;
-            case SSPAN:
-                obj = SaltFactory.createSSpan();
-                break;
-            case SSTRUCTURE:
-                obj = SaltFactory.createSStructure();
-                break;
-            case STOKEN:
-                obj = SaltFactory.createSToken();
-                break;
-            default:
-                obj = null;
-            }
-            if (obj == null) {
-                log.warn("Can't create Salt object from type {}", type.toString());
-            } else {
-                for (GMLData data : node.data) {
-                    // get the corresponding key entry and parse the value according to the type of
-                    // the key
-                    GMLKey key = this.keys.get(data.key);
-                    if (key != null && (key.forObj == GMLKeyFor.all || key.forObj == GMLKeyFor.node)) {
-                        if ("salt::SNAME".equals(key.qname)) {
-                            obj.setName(data.value);
-                        } else if ("salt::id".equals(key.qname)) {
-                            obj.setId(data.value);
-                        } else {
-                            Label lbl = createLabel(key, data.value);
-                            obj.addLabel(lbl);
-                        }
-                    }
+            Optional<String> typeRaw = getType(node.data);
+            if (typeRaw.isPresent()) {
+                SALT_TYPE type = SALT_TYPE.valueOf(typeRaw.get());
+                SNode obj;
+                switch (type) {
+                case SMEDIAL_DS:
+                    obj = SaltFactory.createSMedialDS();
+                    break;
+                case STIMELINE:
+                    obj = SaltFactory.createSTimeline();
+                case STEXTUAL_DS:
+                    obj = SaltFactory.createSTextualDS();
+                    break;
+                case SSPAN:
+                    obj = SaltFactory.createSSpan();
+                    break;
+                case SSTRUCTURE:
+                    obj = SaltFactory.createSStructure();
+                    break;
+                case STOKEN:
+                    obj = SaltFactory.createSToken();
+                    break;
+                default:
+                    obj = null;
                 }
-                g.addNode(obj);
-                id2node.put(nodeEntry.getKey(), obj);
-
-            }
-        }
-        for (Map.Entry<String, GMLEdge> edgeEntry : this.edges.entrySet()) {
-            GMLEdge edge = edgeEntry.getValue();
-            SALT_TYPE type = SALT_TYPE.valueOf(edge.type);
-            SRelation obj;
-            switch (type) {
-            case SDOMINANCE_RELATION:
-                obj = SaltFactory.createSDominanceRelation();
-                break;
-            case SMEDIAL_RELATION:
-                obj = SaltFactory.createSMedialRelation();
-                break;
-            case SORDER_RELATION:
-                obj = SaltFactory.createSOrderRelation();
-                break;
-            case SPOINTING_RELATION:
-                obj = SaltFactory.createSPointingRelation();
-                break;
-            case SSPANNING_RELATION:
-                obj = SaltFactory.createSSpanningRelation();
-                break;
-            case STEXTUAL_RELATION:
-                obj = SaltFactory.createSTextualRelation();
-                break;
-            case STIMELINE_RELATION:
-                obj = SaltFactory.createSTimelineRelation();
-                break;
-            default:
-                obj = null;
-            }
-            if (obj == null) {
-                log.warn("Can't create Salt object from type {}", type.toString());
-            } else {
-                SNode source = id2node.get(edge.source);
-                SNode target = id2node.get(edge.target);
-                if (source != null && target != null) {
-                    obj.setSource(source);
-                    obj.setTarget(target);
-
-                    for (GMLData data : edge.data) {
+                if (obj == null) {
+                    log.warn("Can't create Salt object from type {}", type.toString());
+                } else {
+                    for (GMLData data : node.data) {
                         // get the corresponding key entry and parse the value according to the type of
                         // the key
                         GMLKey key = this.keys.get(data.key);
-                        if (key != null && (key.forObj == GMLKeyFor.all || key.forObj == GMLKeyFor.edge)) {
+                        if (key != null && (key.forObj == GMLKeyFor.all || key.forObj == GMLKeyFor.node)) {
                             if ("salt::SNAME".equals(key.qname)) {
                                 obj.setName(data.value);
                             } else if ("salt::id".equals(key.qname)) {
                                 obj.setId(data.value);
+                            } else if("salt::type".equals(key.qname)) {
+                                // ignore
+                            } else if ("salt::SDATA".equals(key.qname) && obj instanceof STimeline) {
+                                // directly set the timeline end
+                                ((STimeline) obj).increasePointOfTime(Integer.parseInt(data.value));
+                            } else if("salt::SAUDIO_REFERENCE".equals(key.qname) && obj instanceof SMedialDS) {
+                                ((SMedialDS) obj).setMediaReference(URI.createURI(data.value));
                             } else {
                                 Label lbl = createLabel(key, data.value);
                                 obj.addLabel(lbl);
                             }
                         }
                     }
-                    g.addRelation(obj);
+                    g.addNode(obj);
+                    id2node.put(nodeEntry.getKey(), obj);
+                }
+            }
+        }
+        for (Map.Entry<String, GMLEdge> edgeEntry : this.edges.entrySet()) {
+            GMLEdge edge = edgeEntry.getValue();
+            Optional<String> typeRaw = getType(edge.data);
+            if(typeRaw.isPresent()) {
+                SALT_TYPE type = SALT_TYPE.valueOf(typeRaw.get());
+                SRelation obj;
+                switch (type) {
+                case SDOMINANCE_RELATION:
+                    obj = SaltFactory.createSDominanceRelation();
+                    break;
+                case SMEDIAL_RELATION:
+                    obj = SaltFactory.createSMedialRelation();
+                    break;
+                case SORDER_RELATION:
+                    obj = SaltFactory.createSOrderRelation();
+                    break;
+                case SPOINTING_RELATION:
+                    obj = SaltFactory.createSPointingRelation();
+                    break;
+                case SSPANNING_RELATION:
+                    obj = SaltFactory.createSSpanningRelation();
+                    break;
+                case STEXTUAL_RELATION:
+                    obj = SaltFactory.createSTextualRelation();
+                    break;
+                case STIMELINE_RELATION:
+                    obj = SaltFactory.createSTimelineRelation();
+                    break;
+                default:
+                    obj = null;
+                }
+                if (obj == null) {
+                    log.warn("Can't create Salt object from type {}", type.toString());
+                } else {
+                    SNode source = id2node.get(edge.source);
+                    SNode target = id2node.get(edge.target);
+                    if (source != null && target != null) {
+                        obj.setSource(source);
+                        obj.setTarget(target);
+
+                        for (GMLData data : edge.data) {
+                            // get the corresponding key entry and parse the value according to the type of
+                            // the key
+                            GMLKey key = this.keys.get(data.key);
+                            if (key != null && (key.forObj == GMLKeyFor.all || key.forObj == GMLKeyFor.edge)) {
+                                if ("salt::SNAME".equals(key.qname)) {
+                                    obj.setName(data.value);
+                                } else if ("salt::id".equals(key.qname)) {
+                                    obj.setId(data.value);
+                                } else {
+                                    Label lbl = createLabel(key, data.value);
+                                    obj.addLabel(lbl);
+                                }
+                            }
+                        }
+                        g.addRelation(obj);
+                    }
                 }
             }
         }

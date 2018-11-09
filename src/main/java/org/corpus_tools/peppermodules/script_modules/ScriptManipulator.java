@@ -193,7 +193,7 @@ public class ScriptManipulator extends PepperManipulatorImpl {
 						case "graphml":
 							List<SDocument> docs = GraphMLReader.convertToSalt(stdout);
 							if (!docs.isEmpty()) {
-								setDocument(docs.get(0));
+								doc.setDocumentGraph(docs.get(0).getDocumentGraph());
 							}
 							break;
 						case "saltxml":

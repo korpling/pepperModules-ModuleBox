@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,12 +38,15 @@ import javax.xml.stream.XMLStreamWriter;
 import org.corpus_tools.salt.SALT_TYPE;
 import org.corpus_tools.salt.common.SDocument;
 import org.corpus_tools.salt.common.SDocumentGraph;
+import org.corpus_tools.salt.common.STextualDS;
+import org.corpus_tools.salt.common.STimeline;
 import org.corpus_tools.salt.core.SNode;
 import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Label;
 import org.corpus_tools.salt.graph.LabelableElement;
 import org.corpus_tools.salt.graph.Node;
 import org.corpus_tools.salt.graph.Relation;
+import org.eclipse.emf.common.util.URI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,7 +81,7 @@ public class GraphMLWriter {
 
 			// we always use the "salt::type" label
 			w.writeStartElement(NS, "key");
-		
+
 			w.writeAttribute("id", ids.getID(new AttributeSignature("salt::type", "string")));
 			w.writeAttribute("attr.name", "salt::type");
 			w.writeAttribute("for", "all");
@@ -91,8 +95,12 @@ public class GraphMLWriter {
 					if (g != null) {
 						writeKeys(w, g.getNodes(), ids);
 						writeKeys(w, g.getRelations(), ids);
-						if (g.getDocument() != null) {
-							writeKeys(w, g.getDocument().getLabels(), ids);
+						writeKeys(w, g.getTextualDSs(), ids);
+						writeKeys(w, g.getMedialDSs(), ids);
+						if (g.getTimeline() != null) {
+							List<STimeline> timeline = new LinkedList<>();
+							timeline.add(g.getTimeline());
+							writeKeys(w, timeline, ids);
 						}
 					}
 				}
@@ -111,14 +119,14 @@ public class GraphMLWriter {
 
 	}
 
-	private static void writeKeys(XMLStreamWriter w, Collection<? extends LabelableElement> elements,
-			IDManager ids) throws XMLStreamException {
+	private static void writeKeys(XMLStreamWriter w, Collection<? extends LabelableElement> elements, IDManager ids)
+			throws XMLStreamException {
 		if (elements != null && !elements.isEmpty()) {
 			for (LabelableElement e : elements) {
 				Collection<Label> labels = e.getLabels();
 				if (labels != null && !labels.isEmpty()) {
 					for (Label l : labels) {
-						
+
 						Object o = l.getValue();
 						String type = getType(o);
 						if (type != null) {
@@ -155,12 +163,13 @@ public class GraphMLWriter {
 			type = "double";
 		} else if (o instanceof String) {
 			type = "string";
+		} else if (o instanceof URI) {
+			type = "string";
 		}
 		return type;
 	}
 
-	private static void writeLabels(XMLStreamWriter w, Collection<Label> labels, 
-		IDManager ids)
+	private static void writeLabels(XMLStreamWriter w, Collection<Label> labels, IDManager ids)
 			throws XMLStreamException {
 		if (labels != null && !labels.isEmpty()) {
 			for (Label l : labels) {
@@ -213,8 +222,7 @@ public class GraphMLWriter {
 		}
 	}
 
-	private static void writeNode(XMLStreamWriter w, Node c, IDManager ids)
-			throws XMLStreamException {
+	private static void writeNode(XMLStreamWriter w, Node c, IDManager ids) throws XMLStreamException {
 		w.writeStartElement(NS, "node");
 		w.writeAttribute("id", ids.getID(c));
 
@@ -223,8 +231,7 @@ public class GraphMLWriter {
 		w.writeEndElement();
 	}
 
-	private static void writeEdge(XMLStreamWriter w, Relation r, IDManager ids)
-			throws XMLStreamException {
+	private static void writeEdge(XMLStreamWriter w, Relation r, IDManager ids) throws XMLStreamException {
 		w.writeStartElement(NS, "edge");
 		w.writeAttribute("id", ids.getID(r));
 		w.writeAttribute("source", ids.getID(r.getSource()));
@@ -251,7 +258,7 @@ public class GraphMLWriter {
 			w.writeAttribute("edgedefault", "directed");
 
 			if (includeDocLabels && g.getDocument() != null) {
-				writeLabels(w, g.getDocument().getLabels(),  ids);
+				writeLabels(w, g.getDocument().getLabels(), ids);
 			}
 
 			for (SNode n : nodes) {
