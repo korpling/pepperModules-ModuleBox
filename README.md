@@ -4,7 +4,7 @@
 Pepper can be extended with modules like this one.
 For more information how to use Pepper, see the [user guide](http://corpus-tools.org/pepper/userGuide.html).
 
-# ModuleBox
+---
 
 This repository contains several smaller general purpose Pepper modules.
 
