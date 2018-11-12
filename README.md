@@ -1,5 +1,5 @@
 # Pepper
-Pepper is a highly extensible plattform for conversion and manipulation of linguistic data between an unbound set of formats. Pepper can be used stand-alone as a command line interface, or be integrated as an API into other software products.
+[Pepper](http://corpus-tools.org/pepper/) is a highly extensible plattform for conversion and manipulation of linguistic data between an unbound set of formats. Pepper can be used stand-alone as a command line interface, or be integrated as an API into other software products.
 
 Pepper can be extended with modules like this one.
 For more information how to use Pepper, see the [user guide](http://corpus-tools.org/pepper/userGuide.html).
