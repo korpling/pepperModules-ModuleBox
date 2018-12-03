@@ -49,7 +49,9 @@ public class SOrderRelationAdderProperties extends PepperModuleProperties {
 			if (segs != null) {
 				segs = StringUtils.strip(segs, "{}");
 				for (String seg : segs.split("\\s*,\\s*")) {
-					segmentations.add(seg.trim());
+					if(!seg.trim().isEmpty()) {
+						segmentations.add(seg.trim());
+					}
 				}
 			}
 		}
