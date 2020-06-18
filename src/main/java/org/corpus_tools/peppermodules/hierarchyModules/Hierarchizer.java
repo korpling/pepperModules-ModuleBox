@@ -51,8 +51,10 @@ public class Hierarchizer extends PepperManipulatorImpl{
 			if (getDocument().getDocumentGraph() == null) {
 				throw new PepperModuleDataException(this, "Document graph is null.");
 			}
-			String structName = ((HierarchizerProperties) getProperties()).getStructAnnoName();
-			hierarchy = ((HierarchizerProperties) this.getProperties()).getHierarchyNames();
+			HierarchizerProperties props = (HierarchizerProperties) getProperties(); 
+			String structName = props.getStructAnnoName();
+			Map<String, String> defaultValues = props.getDefaultValues();
+			hierarchy = props.getHierarchyNames();
 			List<List<SSpan>> hierarchySpans = new ArrayList<List<SSpan>>();
 			for (String name : hierarchy) {
 				hierarchySpans.add(new ArrayList<>());
@@ -85,11 +87,11 @@ public class Hierarchizer extends PepperManipulatorImpl{
 						children.addAll(tokens);
 					} 
 					SStructure struct = getDocument().getDocumentGraph().createStructure(new ArrayList<>(children));					
-					struct.createAnnotation(null, structName, span.getAnnotation(catName).getValue());
+					struct.createAnnotation(null, structName, defaultValues.containsKey(catName)? defaultValues.get(catName) : span.getAnnotation(catName).getValue());
 					for (SToken tok : tokens) {
 						nextMap.put(tok, struct);						
 					}
-					if (span.getAnnotations().size() == 1 && ((HierarchizerProperties) getProperties()).deleteSpanAnnotations()) {
+					if (span.getAnnotations().size() == 1 && props.deleteSpanAnnotations()) {
 						getDocument().getDocumentGraph().removeNode(span);
 					}
 				}

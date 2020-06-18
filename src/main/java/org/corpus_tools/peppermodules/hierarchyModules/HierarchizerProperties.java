@@ -1,7 +1,11 @@
 package org.corpus_tools.peppermodules.hierarchyModules;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.corpus_tools.pepper.modules.PepperModuleProperties;
@@ -14,6 +18,9 @@ public class HierarchizerProperties extends PepperModuleProperties {
 	public static final String PROP_DELETE_SPANS = "delete.span.annos";
 	/** Annotation name for structures (default is "cat"). */
 	public static final String PROP_STRUCT_ANNO_NAME = "struct.anno.name";
+	/** Provide a default value for the category annotation instead of extracting the value from a span's annotation. Provide comma-separated pairs of "annotation_name:=default_value" */
+	public static final String PROP_DEFAULT_VALUES = "hierarchy.default.values";
+	
 	
 	public HierarchizerProperties() {
 		super();
@@ -35,11 +42,16 @@ public class HierarchizerProperties extends PepperModuleProperties {
 				.withDescription("Annotation name for structures (default is \"cat\").")
 				.withDefaultValue("cat")
 				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_DEFAULT_VALUES)
+				.withType(String.class)
+				.withDescription("Provide a default value for the category annotation instead of extracting the value from a span's annotation. Provide comma-separated pairs of \"annotation_name:=default_value\"")
+				.build());
 	}
 	
 	public List<String> getHierarchyNames() {
-		String listStr = (String) getProperty(PROP_HIERARCHY_NAMES).getValue();
-		return Arrays.asList(StringUtils.split(listStr, ","));
+		String listStr = (String) getProperty(PROP_HIERARCHY_NAMES).getValue();		
+		return Arrays.asList(StringUtils.split(listStr, ",")).stream().map(String::trim).collect(Collectors.toList());
 	}
 	
 	public boolean deleteSpanAnnotations() {
@@ -48,5 +60,18 @@ public class HierarchizerProperties extends PepperModuleProperties {
 	
 	public String getStructAnnoName() {
 		return (String) getProperty(PROP_STRUCT_ANNO_NAME).getValue();
+	}
+	
+	public Map<String, String> getDefaultValues() {
+		Object value = getProperty(PROP_DEFAULT_VALUES).getValue();
+		if (value == null) {
+			return Collections.<String, String>emptyMap();
+		}
+		Map<String, String> defVals = new HashMap<String, String>();
+		for (String kvPair : StringUtils.split((String) value, ",")) {
+			String[] k_v = kvPair.split(":=");
+			defVals.put(k_v[0].trim(), k_v[1].trim());
+		}
+		return defVals;
 	}
 }
