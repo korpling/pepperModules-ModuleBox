@@ -17,13 +17,15 @@ import org.corpus_tools.salt.common.SSpan;
 import org.corpus_tools.salt.common.SStructure;
 import org.corpus_tools.salt.common.SStructuredNode;
 import org.corpus_tools.salt.common.SToken;
-import org.corpus_tools.salt.core.SNode;
 import org.corpus_tools.salt.graph.Identifier;
 import org.eclipse.emf.common.util.URI;
 import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component(name = "HierarchizerComponent", factory = "PepperManipulatorComponentFactory")
 public class Hierarchizer extends PepperManipulatorImpl{
+	private static final Logger logger = LoggerFactory.getLogger(Hierarchizer.class);
 	public Hierarchizer() {
 		super();
 		this.setName("Hierarchizer");
@@ -67,6 +69,10 @@ public class Hierarchizer extends PepperManipulatorImpl{
 				nextMap = new HashMap<>();
 				for (SSpan span : hierarchySpans.get(i)) {
 					List<SToken> tokens = getDocument().getDocumentGraph().getOverlappedTokens(span);
+					if (tokens.isEmpty()) {
+						logger.warn("Span annotated for hierarchy level " + catName + " does not cover any token and is skipped.");
+						continue;
+					}
 					Set<SStructuredNode> children = new HashSet<>();
 					for (SToken tok : tokens) {
 						SStructuredNode child = tok2Struct.get(tok);
