@@ -49,6 +49,7 @@ public class Hierarchizer extends PepperManipulatorImpl{
 			if (getDocument().getDocumentGraph() == null) {
 				throw new PepperModuleDataException(this, "Document graph is null.");
 			}
+			String structName = ((HierarchizerProperties) getProperties()).getStructAnnoName();
 			hierarchy = ((HierarchizerProperties) this.getProperties()).getHierarchyNames();
 			List<List<SSpan>> hierarchySpans = new ArrayList<List<SSpan>>();
 			for (String name : hierarchy) {
@@ -78,7 +79,7 @@ public class Hierarchizer extends PepperManipulatorImpl{
 						children.addAll(tokens);
 					} 
 					SStructure struct = getDocument().getDocumentGraph().createStructure(new ArrayList<>(children));					
-					struct.createAnnotation(null, "cat", span.getAnnotation(catName).getValue());
+					struct.createAnnotation(null, structName, span.getAnnotation(catName).getValue());
 					for (SToken tok : tokens) {
 						nextMap.put(tok, struct);						
 					}
