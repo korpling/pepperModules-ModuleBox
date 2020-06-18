@@ -43,7 +43,7 @@ public class HierarchizerProperties extends PepperModuleProperties {
 	}
 	
 	public boolean deleteSpanAnnotations() {
-		return (boolean) getProperty(PROP_DELETE_SPANS).getValue();
+		return (Boolean) getProperty(PROP_DELETE_SPANS).getValue();
 	}
 	
 	public String getStructAnnoName() {
