@@ -10,8 +10,10 @@ import org.corpus_tools.peppermodules.hierarchyModules.Hierarchizer.HierarchyMap
 import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.SDocument;
 import org.corpus_tools.salt.common.SDocumentGraph;
+import org.corpus_tools.salt.common.SDominanceRelation;
 import org.corpus_tools.salt.common.SStructuredNode;
 import org.corpus_tools.salt.common.SToken;
+import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.util.SaltUtil;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,6 +55,7 @@ public class HierarchizerTest {
 		SDocumentGraph targetGraph = targetDoc.createDocumentGraph();
 		List<SToken> tokens = graph.createTextualDS(StringUtils.join(BASE_TOKENS, " ")).tokenize();
 		List<SToken> targetTokens = targetGraph.createTextualDS(StringUtils.join(BASE_TOKENS, " ")).tokenize();
+		String edgeType = ((HierarchizerProperties) getFixture().getProperties()).getEdgeType();
 		for (int[] s : SENTENCES) {
 			List<SToken> sentenceTokens = new ArrayList<>();
 			List<SStructuredNode> outerStructs = new ArrayList<>();
@@ -65,9 +68,11 @@ public class HierarchizerTest {
 					structures.add(targetGraph.createStructure(targetTokens.get(j)));
 					structures.get(structures.size() - 1).createAnnotation(null, STRUCT_ANNO_NAME, POS[j]);
 				}
+				setTypeForStructs(structures, edgeType);
 				outerStructs.add(targetGraph.createStructure(structures));
 				outerStructs.get(outerStructs.size() - 1).createAnnotation(null, STRUCT_ANNO_NAME, CAT_VALUES[k]);
 			}
+			setTypeForStructs(outerStructs, edgeType);
 			graph.createSpan(sentenceTokens).createAnnotation(null, SENTENCE_NAME, SENTENCE_VALUE);
 			targetGraph.createStructure(outerStructs).createAnnotation(null, STRUCT_ANNO_NAME, SENTENCE_VALUE);
 		}
@@ -79,5 +84,11 @@ public class HierarchizerTest {
 		mapper.mapSDocument();
 		SDocumentGraph fixGraph = mapper.getDocument().getDocumentGraph();
 		assertEquals(fixGraph.findDiffs(targetDocument.getDocumentGraph()).size(), 0);
+	}
+	
+	private void setTypeForStructs(List<SStructuredNode> structures, String edgeType) {
+		for (SStructuredNode structNode : structures) {
+			structNode.getOutRelations().stream().filter((SRelation r) -> r instanceof SDominanceRelation).forEach((SRelation r) -> r.setType(edgeType));
+		}
 	}
 }

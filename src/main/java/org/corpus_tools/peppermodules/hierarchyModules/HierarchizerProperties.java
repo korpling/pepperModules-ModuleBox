@@ -20,7 +20,8 @@ public class HierarchizerProperties extends PepperModuleProperties {
 	public static final String PROP_STRUCT_ANNO_NAME = "struct.anno.name";
 	/** Provide a default value for the category annotation instead of extracting the value from a span's annotation. Provide comma-separated pairs of "annotation_name:=default_value" */
 	public static final String PROP_DEFAULT_VALUES = "hierarchy.default.values";
-	
+	/** This property configures the edge type that is set to all generated dominance relations. It is not an annotation. */
+	public static final String PROP_EDGE_TYPE = "hierarchy.edge.type";
 	
 	public HierarchizerProperties() {
 		super();
@@ -46,6 +47,12 @@ public class HierarchizerProperties extends PepperModuleProperties {
 				.withName(PROP_DEFAULT_VALUES)
 				.withType(String.class)
 				.withDescription("Provide a default value for the category annotation instead of extracting the value from a span's annotation. Provide comma-separated pairs of \"annotation_name:=default_value\"")
+				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_EDGE_TYPE)
+				.withType(String.class)
+				.withDescription("This property configures the edge type that is set to all generated dominance relations. It is not an annotation.")
+				.withDefaultValue("edge")
 				.build());
 	}
 	
@@ -73,5 +80,9 @@ public class HierarchizerProperties extends PepperModuleProperties {
 			defVals.put(k_v[0].trim(), k_v[1].trim());
 		}
 		return defVals;
+	}
+	
+	public String getEdgeType() {
+		return (String) getProperty(PROP_EDGE_TYPE).getValue();		
 	}
 }

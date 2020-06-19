@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
@@ -13,10 +14,12 @@ import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
 import org.corpus_tools.pepper.impl.PepperMapperImpl;
 import org.corpus_tools.pepper.modules.PepperMapper;
 import org.corpus_tools.pepper.modules.exceptions.PepperModuleDataException;
+import org.corpus_tools.salt.common.SDominanceRelation;
 import org.corpus_tools.salt.common.SSpan;
 import org.corpus_tools.salt.common.SStructure;
 import org.corpus_tools.salt.common.SStructuredNode;
 import org.corpus_tools.salt.common.SToken;
+import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Identifier;
 import org.eclipse.emf.common.util.URI;
 import org.osgi.service.component.annotations.Component;
@@ -53,6 +56,7 @@ public class Hierarchizer extends PepperManipulatorImpl{
 			}
 			HierarchizerProperties props = (HierarchizerProperties) getProperties(); 
 			String structName = props.getStructAnnoName();
+			String edgeType = props.getEdgeType();
 			Map<String, String> defaultValues = props.getDefaultValues();
 			hierarchy = props.getHierarchyNames();
 			List<List<SSpan>> hierarchySpans = new ArrayList<List<SSpan>>();
@@ -88,6 +92,7 @@ public class Hierarchizer extends PepperManipulatorImpl{
 					} 
 					SStructure struct = getDocument().getDocumentGraph().createStructure(new ArrayList<>(children));					
 					struct.createAnnotation(null, structName, defaultValues.containsKey(catName)? defaultValues.get(catName) : span.getAnnotation(catName).getValue());
+					struct.getOutRelations().stream().filter((SRelation r) -> r instanceof SDominanceRelation).forEach((SRelation r) -> r.setType(edgeType));
 					for (SToken tok : tokens) {
 						nextMap.put(tok, struct);						
 					}
