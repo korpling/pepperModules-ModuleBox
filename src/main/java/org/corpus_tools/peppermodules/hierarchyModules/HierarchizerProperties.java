@@ -22,6 +22,8 @@ public class HierarchizerProperties extends PepperModuleProperties {
 	public static final String PROP_DEFAULT_VALUES = "hierarchy.default.values";
 	/** This property configures the edge type that is set to all generated dominance relations. It is not an annotation. */
 	public static final String PROP_EDGE_TYPE = "hierarchy.edge.type";
+	/** Provide a name for a layer around all generated trees. Providing no value will lead to no layer. */
+	public static final String PROP_LAYER_NAME = "hierarchy.layer.name";
 	
 	public HierarchizerProperties() {
 		super();
@@ -54,6 +56,11 @@ public class HierarchizerProperties extends PepperModuleProperties {
 				.withDescription("This property configures the edge type that is set to all generated dominance relations. It is not an annotation.")
 				.withDefaultValue("edge")
 				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_LAYER_NAME)
+				.withType(String.class)
+				.withDescription("Provide a name for a layer around all generated trees. Providing no value will lead to no layer.")
+				.build());
 	}
 	
 	public List<String> getHierarchyNames() {
@@ -84,5 +91,10 @@ public class HierarchizerProperties extends PepperModuleProperties {
 	
 	public String getEdgeType() {
 		return (String) getProperty(PROP_EDGE_TYPE).getValue();		
+	}
+	
+	public String getLayerName() {
+		Object value = getProperty(PROP_LAYER_NAME).getValue();
+		return value == null? null : (String) value;
 	}
 }

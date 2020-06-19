@@ -6,19 +6,21 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
 import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
 import org.corpus_tools.pepper.impl.PepperMapperImpl;
 import org.corpus_tools.pepper.modules.PepperMapper;
 import org.corpus_tools.pepper.modules.exceptions.PepperModuleDataException;
+import org.corpus_tools.salt.SaltFactory;
 import org.corpus_tools.salt.common.SDominanceRelation;
 import org.corpus_tools.salt.common.SSpan;
 import org.corpus_tools.salt.common.SStructure;
 import org.corpus_tools.salt.common.SStructuredNode;
 import org.corpus_tools.salt.common.SToken;
+import org.corpus_tools.salt.core.SLayer;
 import org.corpus_tools.salt.core.SRelation;
 import org.corpus_tools.salt.graph.Identifier;
 import org.eclipse.emf.common.util.URI;
@@ -57,6 +59,12 @@ public class Hierarchizer extends PepperManipulatorImpl{
 			HierarchizerProperties props = (HierarchizerProperties) getProperties(); 
 			String structName = props.getStructAnnoName();
 			String edgeType = props.getEdgeType();
+			SLayer layer = SaltFactory.createSLayer();
+			String layerName = props.getLayerName();
+			if (layerName != null) {
+				layer.setName(props.getLayerName());
+				layer.setGraph(getDocument().getDocumentGraph());
+			}
 			Map<String, String> defaultValues = props.getDefaultValues();
 			hierarchy = props.getHierarchyNames();
 			List<List<SSpan>> hierarchySpans = new ArrayList<List<SSpan>>();
@@ -74,7 +82,7 @@ public class Hierarchizer extends PepperManipulatorImpl{
 				Map<SToken, SStructure> tok2Struct = nextMap;
 				nextMap = new HashMap<>();
 				for (SSpan span : hierarchySpans.get(i)) {
-					List<SToken> tokens = getDocument().getDocumentGraph().getOverlappedTokens(span);
+					List<SToken> tokens = getDocument().getDocumentGraph().getSortedTokenByText( getDocument().getDocumentGraph().getOverlappedTokens(span) );
 					if (tokens.isEmpty()) {
 						logger.warn("Span annotated for hierarchy level " + catName + " does not cover any token and is skipped.");
 						continue;
@@ -83,7 +91,10 @@ public class Hierarchizer extends PepperManipulatorImpl{
 					for (SToken tok : tokens) {
 						SStructuredNode child = tok2Struct.get(tok);
 						if (child != null) {
-							children.add(child);
+							children.add(child);							
+						} 
+						else if (layerName != null) { // add tokens to layer, too
+							tok.addLayer(layer);
 						}
 					}
 					if (children.isEmpty()) {
@@ -98,6 +109,10 @@ public class Hierarchizer extends PepperManipulatorImpl{
 					}
 					if (span.getAnnotations().size() == 1 && props.deleteSpanAnnotations()) {
 						getDocument().getDocumentGraph().removeNode(span);
+					}
+					if (layerName != null) {
+						struct.addLayer(layer);
+						struct.getOutRelations().stream().forEach(layer::addRelation);
 					}
 				}
 			}
