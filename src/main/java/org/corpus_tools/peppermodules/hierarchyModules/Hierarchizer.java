@@ -2,12 +2,11 @@ package org.corpus_tools.peppermodules.hierarchyModules;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang3.StringUtils;
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
 import org.corpus_tools.pepper.impl.PepperManipulatorImpl;
@@ -87,7 +86,7 @@ public class Hierarchizer extends PepperManipulatorImpl{
 						logger.warn("Span annotated for hierarchy level " + catName + " does not cover any token and is skipped.");
 						continue;
 					}
-					Set<SStructuredNode> children = new HashSet<>();
+					Set<SStructuredNode> children = new LinkedHashSet<>();
 					for (SToken tok : tokens) {
 						SStructuredNode child = tok2Struct.get(tok);
 						if (child != null) {
