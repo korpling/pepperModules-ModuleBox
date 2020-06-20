@@ -2,8 +2,10 @@ package org.corpus_tools.peppermodules.hierarchyModules;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.corpus_tools.pepper.common.DOCUMENT_STATUS;
 import org.corpus_tools.pepper.common.PepperConfiguration;
@@ -84,7 +86,7 @@ public class Hierarchizer extends PepperManipulatorImpl{
 						logger.warn("Span annotated for hierarchy level " + catName + " does not cover any token and is skipped.");
 						continue;
 					}
-					List<SStructuredNode> children = new ArrayList<>();
+					Set<SStructuredNode> children = new LinkedHashSet<>();
 					for (SToken tok : tokens) {
 						SStructuredNode child = tok2Struct.get(tok);
 						if (child != null) {
@@ -98,7 +100,7 @@ public class Hierarchizer extends PepperManipulatorImpl{
 						// first level
 						children.addAll(tokens);
 					} 
-					SStructure struct = getDocument().getDocumentGraph().createStructure(children);					
+					SStructure struct = getDocument().getDocumentGraph().createStructure(new ArrayList<>(children));					
 					struct.createAnnotation(null, structName, defaultValues.containsKey(catName)? defaultValues.get(catName) : span.getAnnotation(catName).getValue());
 					struct.getOutRelations().stream().filter((SRelation r) -> r instanceof SDominanceRelation).forEach((SRelation r) -> r.setType(edgeType));
 					for (SToken tok : tokens) {
