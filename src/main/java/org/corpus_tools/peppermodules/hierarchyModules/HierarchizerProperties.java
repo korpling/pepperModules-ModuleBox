@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -24,6 +25,18 @@ public class HierarchizerProperties extends PepperModuleProperties {
 	public static final String PROP_EDGE_TYPE = "hierarchy.edge.type";
 	/** Provide a name for a layer around all generated trees. Providing no value will lead to no layer. */
 	public static final String PROP_LAYER_NAME = "hierarchy.layer.name";
+	/** This property assigns the named annotations as edge annotation between two hierarchical levels instead of as a hierarchical level itself. Those edge names are required to be enumerated as relevant for the hierarchy in "hierarchy.names" */
+	public static final String PROP_NAMES_AS_EDGES = "hierarchy.edge.names";
+	/** This assumes annotation IDs for relations have been annotated. */
+	public static final String PROP_DISC_POINTERS = "pointers";
+	/** Set a pointer id marker.*/
+	public static final String PROP_POINTER_MARKER = "pointers.marker";
+	/** Set the edge type name for the pointers. */
+	public static final String PROP_POINTER_EDGE_TYPE = "pointers.edge.type";
+	/** Assign a document root note dominating all tree roots. This can be useful when you want to analyze relations between nodes of different trees. */
+	public static final String PROP_TEXT_ROOT = "hierarchy.common.root";
+	/** This property determines the annotation value for the text root node. */
+	public static final String PROP_TEXT_ROOT_VALUE = "hierarchy.root.value";
 	
 	public HierarchizerProperties() {
 		super();
@@ -61,6 +74,41 @@ public class HierarchizerProperties extends PepperModuleProperties {
 				.withType(String.class)
 				.withDescription("Provide a name for a layer around all generated trees. Providing no value will lead to no layer.")
 				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_NAMES_AS_EDGES)
+				.withType(String.class)
+				.withDescription("This property assigns the named annotations as edge annotation between two hierarchical levels instead of as a hierarchical level itself. Those edge names are required to be enumerated as relevant for the hierarchy in \"hierarchy.names\" ")
+				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_DISC_POINTERS)
+				.withType(Boolean.class)
+				.withDescription("This assumes annotation IDs for relations have been annotated.")
+				.withDefaultValue(false)
+				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_POINTER_MARKER)
+				.withType(String.class)
+				.withDescription("Set a pointer id marker. Default is #")
+				.withDefaultValue("#")
+				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_POINTER_EDGE_TYPE)
+				.withType(String.class)
+				.withDescription("Set the edge type name for the pointers.")
+				.withDefaultValue("refers_to")
+				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_TEXT_ROOT)
+				.withType(Boolean.class)
+				.withDescription("Assign a document root note dominating all tree roots. This can be useful when you want to analyze relations between nodes of different trees.")
+				.withDefaultValue(false)
+				.build());
+		addProperty(PepperModuleProperty.create()
+				.withName(PROP_TEXT_ROOT_VALUE)
+				.withType(String.class)
+				.withDescription("This property determines the annotation value for the text root node.")
+				.withDefaultValue("TEXT")
+				.build());
 	}
 	
 	public List<String> getHierarchyNames() {
@@ -96,5 +144,34 @@ public class HierarchizerProperties extends PepperModuleProperties {
 	public String getLayerName() {
 		Object value = getProperty(PROP_LAYER_NAME).getValue();
 		return value == null? null : (String) value;
+	}
+	
+	public Set<String> getEdgeNames() {
+		Object val = getProperty(PROP_NAMES_AS_EDGES).getValue();
+		if (val == null) {
+			return Collections.<String>emptySet();
+		}
+		String listStr = (String) val;		
+		return Arrays.asList(StringUtils.split(listStr, ",")).stream().map(String::trim).collect(Collectors.toSet());
+	}
+	
+	public boolean hasPointers() {
+		return (Boolean) getProperty(PROP_DISC_POINTERS).getValue();		
+ 	}
+	
+	public String getPointerMarker() {
+		return (String) getProperty(PROP_POINTER_MARKER).getValue();
+	}
+	
+	public String getPointerType() {
+		return (String) getProperty(PROP_POINTER_EDGE_TYPE).getValue();
+	}
+	
+	public boolean treeifyForest() {
+		return (Boolean) getProperty(PROP_TEXT_ROOT).getValue();
+	}
+	
+	public String getRootValue() {
+		return (String) getProperty(PROP_TEXT_ROOT_VALUE).getValue();
 	}
 }
