@@ -93,6 +93,9 @@ public class Hierarchizer extends PepperManipulatorImpl{
 				String catName = hierarchy.get(i);
 				Map<SToken, SStructure> tok2Struct = nextMap;
 				nextMap = new HashMap<>();
+				if (hierarchySpans.get(i).isEmpty()) {
+					logger.info("No spans for hierarchy level " + catName + " in document " + getDocument().getName() + ".");
+				}
 				for (SSpan span : hierarchySpans.get(i)) {
 					List<SToken> tokens = getDocument().getDocumentGraph().getSortedTokenByText( getDocument().getDocumentGraph().getOverlappedTokens(span) );
 					if (tokens.isEmpty()) {
@@ -102,10 +105,8 @@ public class Hierarchizer extends PepperManipulatorImpl{
 					Set<SStructuredNode> children = new LinkedHashSet<>();
 					for (SToken tok : tokens) {
 						SStructuredNode child = tok2Struct.get(tok);
-						if (child != null) {
-							children.add(child);							
-						} 
-						else if (layerName != null) { // add tokens to layer, too
+						children.add(child == null? tok : child);
+						if (layerName != null) { // add tokens to layer, too
 							tok.addLayer(layer);
 						}
 					}
