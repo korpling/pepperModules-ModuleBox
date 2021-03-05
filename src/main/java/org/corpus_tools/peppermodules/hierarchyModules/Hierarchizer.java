@@ -93,8 +93,8 @@ public class Hierarchizer extends PepperManipulatorImpl{
 				String catName = hierarchy.get(i);
 				Map<SToken, SStructure> tok2Struct = nextMap;
 				nextMap = new HashMap<>();
-				if (hierarchySpans.get(i).isEmpty()) {
-					logger.info("No spans for hierarchy level " + catName + " in document " + getDocument().getName() + ".");
+				if (hierarchySpans.get(i).isEmpty() && logger.isDebugEnabled()) {
+					logger.debug("No spans for hierarchy level " + catName + " in document " + getDocument().getName() + ".");
 				}
 				for (SSpan span : hierarchySpans.get(i)) {
 					List<SToken> tokens = getDocument().getDocumentGraph().getSortedTokenByText( getDocument().getDocumentGraph().getOverlappedTokens(span) );
